@@ -1,0 +1,23 @@
+{
+  "id": "/guest/",
+  "name": "AQX Favorites — مكتبة الروابط",
+  "short_name": "AQX Favorites",
+  "description": "احفظ روابطك من الويب ونظّمها واستعدها من أي جهاز.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/guest/",
+  "scope": "/guest/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#6d4bd1",
+  "background_color": "#f8f7fc",
+  "icons": [
+    { "src": "/guest/icons/aqx-favorites.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "share_target": {
+    "action": "/guest/",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
+}

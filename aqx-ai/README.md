@@ -10,14 +10,26 @@ AQX AI is an AQX-owned application layer for review moderation. It runs open-wei
 - Fail-closed: missing models, malformed output, unsupported media, or runtime errors never produce an approval.
 - Auto-publish is disabled by default and requires an explicit server-side setting after validation.
 
-Model weights are open-weight third-party projects governed by their own licenses; they are not AQX-authored intellectual property. Inference runs inside the AQX service and does not call a hosted AI inference API. First startup downloads weights into the local Hugging Face cache; mount a persistent volume at `/models`. For operation without a model-hub dependency, AQX must review each model license, mirror approved artifacts into AQX-controlled storage, pin checksums/revisions, and load only those local files. AQX can own the orchestration, policy, API, evaluation data, and deployment code; claiming third-party model weights are wholly AQX-owned would be inaccurate.
+Model weights are third-party open-weight artifacts, not AQX-authored intellectual property. The current manifest preparation utility verifies the declared Apache-2.0 license, resolves each model to an immutable commit, and mirrors it into the persistent AQX model volume. Inference loads only local paths with `local_files_only=True`; it does not call a hosted AI inference API or the model hub. AQX owns the orchestration, moderation policy, API, evaluation data, and deployment code. Third-party model copyrights and licenses remain with their respective authors.
 
 ## Run locally
 
 ```bash
 cp .env.example .env
-docker compose up --build
+# Set AQX_AI_INTERNAL_TOKEN to a random secret of at least 32 characters.
+docker compose build
+# One-time model acquisition into the AQX-owned persistent Docker volume:
+docker compose run --rm aqx-ai python scripts/prepare_models.py
+# Runtime inference is offline and reads only /models:
+docker compose up -d
 ```
+
+The preparation step requires internet access once to acquire public model artifacts. Subsequent inference is local-only. The current model set is:
+- Text: [Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) — Apache-2.0.
+- Audio: [Whisper tiny](https://huggingface.co/openai/whisper-tiny) — Apache-2.0 as declared on the model card.
+- Image safety: [Falconsai NSFW image detection](https://huggingface.co/Falconsai/nsfw_image_detection) — Apache-2.0.
+
+The exact commit revisions actually acquired are recorded in `/models/model-manifest.json`. Review the licenses and model cards before commercial production use.
 
 Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers.
 

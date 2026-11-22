@@ -39,6 +39,8 @@ IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "/models/image")
 MAX_UPLOAD_BYTES = int(os.getenv("AQX_MAX_UPLOAD_MB", "10")) * 1024 * 1024
 MAX_AUDIO_SECONDS = int(os.getenv("AQX_MAX_AUDIO_SECONDS", "900"))
 MAX_IMAGE_PIXELS = int(os.getenv("AQX_MAX_IMAGE_PIXELS", "20000000"))
+MAX_TEXT_CHARS = max(1000, int(os.getenv("AQX_MAX_TEXT_CHARS", "12000")))
+MAX_CHAT_IMAGES = max(1, int(os.getenv("AQX_MAX_CHAT_IMAGES", "4")))
 Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 # Deliberately hard-disabled until AQX completes a documented multilingual/media validation campaign.
 AUTO_PUBLISH_ENABLED = False
@@ -349,6 +351,8 @@ async def analyze(
     audio: UploadFile | None = File(default=None),
 ):
     _require_token(authorization)
+    if len(text) > MAX_TEXT_CHARS:
+        raise HTTPException(status_code=413, detail="TEXT_TOO_LONG")
     image_bytes = await _read_upload(image)
     audio_bytes = await _read_upload(audio)
 
@@ -544,6 +548,10 @@ async def chat_completions(
         raise HTTPException(status_code=400, detail="UNSUPPORTED_MESSAGE_CONTENT")
 
     combined_text = "\n".join(text_parts).strip()
+    if len(combined_text) > MAX_TEXT_CHARS:
+        raise HTTPException(status_code=413, detail="TEXT_TOO_LONG")
+    if len(image_urls) > MAX_CHAT_IMAGES:
+        raise HTTPException(status_code=413, detail="TOO_MANY_REVIEW_IMAGES")
     if combined_text:
         try:
             decoded = json.loads(combined_text)

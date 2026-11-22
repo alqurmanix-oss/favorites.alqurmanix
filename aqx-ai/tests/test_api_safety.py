@@ -37,3 +37,39 @@ def test_empty_content_is_rejected_after_auth(monkeypatch):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 400
+
+
+def test_low_confidence_rejection_goes_to_human_review():
+    from app.main import _apply_safety_gate
+
+    result = _apply_safety_gate({
+        "decision": "reject",
+        "confidence": 0.72,
+        "categories": ["possible_harassment"],
+        "rationale": "model rationale",
+    })
+    assert result["decision"] == "human_review"
+
+
+def test_high_confidence_rejection_is_preserved_for_review_workflow():
+    from app.main import _apply_safety_gate
+
+    result = _apply_safety_gate({
+        "decision": "reject",
+        "confidence": 0.99,
+        "categories": ["credible_threat"],
+        "rationale": "model rationale",
+    })
+    assert result["decision"] == "reject"
+
+
+def test_model_cannot_authorize_publication():
+    from app.main import _apply_safety_gate
+
+    result = _apply_safety_gate({
+        "decision": "publish",
+        "confidence": 1.0,
+        "categories": [],
+        "rationale": "clean",
+    })
+    assert result["decision"] == "human_review"

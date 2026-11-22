@@ -191,6 +191,10 @@ async def analyze(
     try:
         if audio_bytes is not None:
             samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+            if sample_rate <= 0 or len(samples) == 0:
+                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+            if len(samples) / sample_rate > MAX_AUDIO_SECONDS:
+                raise HTTPException(status_code=413, detail="AUDIO_TOO_LONG")
             if getattr(samples, "ndim", 1) == 2:
                 samples = samples.mean(axis=1)
             audio_result = _asr_pipeline()(
@@ -204,7 +208,10 @@ async def analyze(
 
         if image_bytes is not None:
             try:
-                with Image.open(io.BytesIO(image_bytes)) as source_image:\n                    if source_image.width * source_image.height > MAX_IMAGE_PIXELS:\n                        raise HTTPException(status_code=413, detail="IMAGE_TOO_LARGE")\n                    pil_image = source_image.convert("RGB")
+                with Image.open(io.BytesIO(image_bytes)) as source_image:
+                    if source_image.width * source_image.height > MAX_IMAGE_PIXELS:
+                        raise HTTPException(status_code=413, detail="IMAGE_TOO_LARGE")
+                    pil_image = source_image.convert("RGB")
             except (UnidentifiedImageError, OSError):
                 raise HTTPException(status_code=415, detail="INVALID_IMAGE")
             extracted["ocr_text"] = pytesseract.image_to_string(

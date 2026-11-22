@@ -51,7 +51,13 @@ docker compose build
 docker compose run --rm --no-deps aqx-ai pytest -q tests/test_load_control.py
 ```
 
-These are software-level tests only. They do not establish production throughput. Before production, run a load test on the actual host with representative text, image, and audio payloads, then tune concurrency to measured CPU/RAM and latency. Limits are per process, not global across replicas.
+These are software-level tests only. They do not establish production throughput. After deployment, run the included HTTP load test from a trusted machine:
+
+```bash
+AQX_AI_BASE_URL=https://<your-private-endpoint> AQX_AI_INTERNAL_TOKEN=<your-token> python scripts/load_test.py --requests 20 --concurrency 2
+```
+
+The script reports throughput, p50/p95 latency, HTTP status counts, and connection errors. Start with low concurrency; do not run aggressive tests against a live production service. Repeat with representative image and audio requests before launch. Tune concurrency to measured CPU/RAM and latency. Limits are per process, not global across replicas.
 
 ## API
 

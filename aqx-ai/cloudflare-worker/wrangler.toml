@@ -1,0 +1,9 @@
+name = "aqx-ai-engine"
+main = "src/index.ts"
+compatibility_date = "2026-11-22"
+
+[ai]
+binding = "AI"
+
+[vars]
+# Set AQX_AI_INTERNAL_TOKEN as an encrypted Worker secret; never commit it.

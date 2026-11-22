@@ -73,3 +73,50 @@ def test_model_cannot_authorize_publication():
         "rationale": "clean",
     })
     assert result["decision"] == "human_review"
+
+
+
+def test_inference_exception_fails_closed(monkeypatch):
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+
+    def fail_inference(_text):
+        raise RuntimeError("simulated model failure")
+
+    monkeypatch.setattr("app.main._classify_text", fail_inference)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "A harmless test review"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["decision"] == "human_review"
+    assert payload["publish_allowed"] is False
+    assert payload["categories"] == ["analysis_unavailable"]
+
+
+def test_invalid_image_is_rejected_as_unsupported_input(monkeypatch):
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "Review with invalid image"},
+        files={"image": ("broken.png", b"not-an-image", "image/png")},
+    )
+    assert response.status_code == 415
+
+
+def test_upload_size_limit_is_enforced(monkeypatch):
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main.MAX_UPLOAD_BYTES", 4)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "Review"},
+        files={"image": ("large.png", b"12345", "image/png")},
+    )
+    assert response.status_code == 413

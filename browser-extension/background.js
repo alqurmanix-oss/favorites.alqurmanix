@@ -80,14 +80,14 @@ async function savePage(input) {
   }
 }
 chrome.runtime.onInstalled.addListener(async () => {
-  chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: "aqx-save-page", title: "احفظ الصفحة في AQX Favorites", contexts: ["page", "link"] }));
+  chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: "aqx-save-page", title: "احفظ الصفحة في AQX Favorites", contexts: ["page", "link", "selection"] }));
   chrome.alarms.create("aqx-sync", { periodInMinutes: 5 });
 });
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "aqx-save-page") return;
   const url = info.linkUrl || info.pageUrl || tab?.url;
   const title = info.linkUrl ? info.linkUrl : (tab?.title || url);
-  await savePage({ url, title });
+  await savePage({ url, title, note: info.selectionText || "" });
 });
 chrome.commands.onCommand.addListener(async command => {
   if (command !== "save-current-page") return;

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import io
 import json
@@ -18,6 +19,7 @@ import torch
 import httpx
 from scipy.signal import resample_poly
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from transformers import (
     AutoImageProcessor,
@@ -41,6 +43,42 @@ Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 AUTO_PUBLISH_ENABLED = False
 
 app = FastAPI(title=APP_NAME, version="0.1.0")
+
+# Per-process admission control: bounded parallel inference and waiting room.
+MAX_CONCURRENT_INFERENCES = max(1, int(os.getenv("AQX_MAX_CONCURRENT_INFERENCES", "1")))
+MAX_QUEUED_INFERENCES = max(0, int(os.getenv("AQX_MAX_QUEUED_INFERENCES", "8")))
+_INFERENCE_CAPACITY = MAX_CONCURRENT_INFERENCES + MAX_QUEUED_INFERENCES
+_inference_semaphore = asyncio.Semaphore(MAX_CONCURRENT_INFERENCES)
+_admission_lock = asyncio.Lock()
+_admitted_requests = 0
+
+@app.middleware("http")
+async def bound_inference_load(request: Request, call_next):
+    global _admitted_requests
+    if request.url.path not in {
+        "/v1/analyze", "/v1/audio/transcriptions", "/v1/chat/completions"
+    }:
+        return await call_next(request)
+
+    async with _admission_lock:
+        if _admitted_requests >= _INFERENCE_CAPACITY:
+            return JSONResponse(
+                status_code=429,
+                content={"ok": False, "error": "AQX_AI_BUSY", "retry_after_seconds": 5},
+                headers={"Retry-After": "5"},
+            )
+        _admitted_requests += 1
+
+    acquired = False
+    try:
+        await _inference_semaphore.acquire()
+        acquired = True
+        return await call_next(request)
+    finally:
+        if acquired:
+            _inference_semaphore.release()
+        async with _admission_lock:
+            _admitted_requests -= 1
 torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
 
 POLICY = """You are AQX's review-safety classifier. Classify the supplied review text
@@ -277,6 +315,12 @@ def health():
             "image": _image_pipeline.cache_info().currsize == 1,
         },
         "auto_publish_enabled": AUTO_PUBLISH_ENABLED,
+        "load_control": {
+            "max_concurrent_inferences": MAX_CONCURRENT_INFERENCES,
+            "max_queued_inferences": MAX_QUEUED_INFERENCES,
+            "admitted_requests": _admitted_requests,
+            "capacity": _INFERENCE_CAPACITY,
+        },
     }
 
 

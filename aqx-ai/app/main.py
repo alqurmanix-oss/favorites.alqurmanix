@@ -3,6 +3,7 @@ from __future__ import annotations
 import hmac
 import io
 import json
+import math
 import os
 import re
 from functools import lru_cache
@@ -11,6 +12,7 @@ from typing import Any
 import pytesseract
 import soundfile as sf
 import torch
+from scipy.signal import resample_poly
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from transformers import (
@@ -229,6 +231,14 @@ async def analyze(
                 raise HTTPException(status_code=415, detail="INVALID_AUDIO")
             if getattr(samples, "ndim", 1) == 2:
                 samples = samples.mean(axis=1)
+            # Whisper expects 16 kHz audio. Resample locally instead of passing
+            # a mismatched sample rate that would fail inference or distort timing.
+            if sample_rate != 16000:
+                divisor = math.gcd(int(sample_rate), 16000)
+                samples = resample_poly(
+                    samples, 16000 // divisor, int(sample_rate) // divisor
+                )
+                sample_rate = 16000
             audio_result = _asr_pipeline()(
                 {"raw": samples, "sampling_rate": sample_rate},
                 generate_kwargs={"task": "transcribe"},

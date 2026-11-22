@@ -567,7 +567,7 @@ async def chat_completions(
             + "\n".join(extracted_ocr)
         ).strip()
 
-    text_result = _classify_text(combined_text) if combined_text else {
+    text_result = await run_in_threadpool(_classify_text, combined_text) if combined_text else {
         "decision": "human_review",
         "confidence": 0.0,
         "categories": ["no_text_for_semantic_review"],

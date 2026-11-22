@@ -17,5 +17,6 @@ RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch
 
 COPY app ./app
 COPY scripts ./scripts
+COPY tests ./tests
 EXPOSE 8080
 CMD ["sh", "-c", "python scripts/verify_models.py && exec uvicorn app.main:app --host 0.0.0.0 --port 8080"]

@@ -12,7 +12,7 @@
   "theme_color": "#6d4bd1",
   "background_color": "#f8f7fc",
   "icons": [
-    { "src": "/guest/icons/aqx-favorites.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/guest/assets/aqx-icon/apple-icon-120x120%20(1).png", "sizes": "120x120", "type": "image/png", "purpose": "any" }
   ],
   "share_target": {
     "action": "/guest/",

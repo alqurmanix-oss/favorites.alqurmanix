@@ -1,0 +1,13 @@
+services:
+  aqx-ai:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - aqx-model-cache:/models
+    restart: unless-stopped
+
+volumes:
+  aqx-model-cache:

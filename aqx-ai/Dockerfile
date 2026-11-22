@@ -15,6 +15,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+COPY app ./app\nCOPY scripts ./scripts
 EXPOSE 8080
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

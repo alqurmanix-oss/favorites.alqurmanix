@@ -24,6 +24,9 @@ TEXT_MODEL = os.getenv("AQX_TEXT_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 ASR_MODEL = os.getenv("AQX_ASR_MODEL", "openai/whisper-tiny")
 IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "Falconsai/nsfw_image_detection")
 MAX_UPLOAD_BYTES = int(os.getenv("AQX_MAX_UPLOAD_MB", "10")) * 1024 * 1024
+MAX_AUDIO_SECONDS = int(os.getenv("AQX_MAX_AUDIO_SECONDS", "900"))
+MAX_IMAGE_PIXELS = int(os.getenv("AQX_MAX_IMAGE_PIXELS", "20000000"))
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 # Deliberately hard-disabled until AQX completes a documented multilingual/media validation campaign.
 AUTO_PUBLISH_ENABLED = False
 
@@ -201,7 +204,7 @@ async def analyze(
 
         if image_bytes is not None:
             try:
-                pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                with Image.open(io.BytesIO(image_bytes)) as source_image:\n                    if source_image.width * source_image.height > MAX_IMAGE_PIXELS:\n                        raise HTTPException(status_code=413, detail="IMAGE_TOO_LARGE")\n                    pil_image = source_image.convert("RGB")
             except (UnidentifiedImageError, OSError):
                 raise HTTPException(status_code=415, detail="INVALID_IMAGE")
             extracted["ocr_text"] = pytesseract.image_to_string(

@@ -50,6 +50,7 @@ app = FastAPI(title=APP_NAME, version="0.1.0")
 # Per-process admission control: bounded parallel inference and waiting room.
 MAX_CONCURRENT_INFERENCES = max(1, int(os.getenv("AQX_MAX_CONCURRENT_INFERENCES", "1")))
 MAX_QUEUED_INFERENCES = max(0, int(os.getenv("AQX_MAX_QUEUED_INFERENCES", "8")))
+QUEUE_WAIT_TIMEOUT_SECONDS = max(1, int(os.getenv("AQX_QUEUE_WAIT_TIMEOUT_SECONDS", "300")))
 _INFERENCE_CAPACITY = MAX_CONCURRENT_INFERENCES + MAX_QUEUED_INFERENCES
 _inference_semaphore = asyncio.Semaphore(MAX_CONCURRENT_INFERENCES)
 _admission_lock = asyncio.Lock()
@@ -74,8 +75,18 @@ async def bound_inference_load(request: Request, call_next):
 
     acquired = False
     try:
-        await _inference_semaphore.acquire()
-        acquired = True
+        try:
+            await asyncio.wait_for(
+                _inference_semaphore.acquire(),
+                timeout=QUEUE_WAIT_TIMEOUT_SECONDS,
+            )
+            acquired = True
+        except asyncio.TimeoutError:
+            return JSONResponse(
+                status_code=503,
+                content={"ok": False, "error": "AQX_AI_QUEUE_TIMEOUT", "retry_after_seconds": 10},
+                headers={"Retry-After": "10"},
+            )
         return await call_next(request)
     finally:
         if acquired:

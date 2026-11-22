@@ -43,6 +43,10 @@ Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose
 
 Response decisions: `publish`, `reject`, or `human_review`. The `publish_allowed` field is the authoritative gate and is currently hard-coded false; no environment variable can enable auto-publication.
 
+## Community compute
+
+The proposed AQX Community Compute program is documented in [COMMUNITY_COMPUTE_POLICY.md](COMMUNITY_COMPUTE_POLICY.md). It is **not implemented, deployed, or active**. It is intended for registered users only, requires explicit consent before any device work, and provides an immediate opt-out control. Guest devices are excluded. Participant devices must never receive private reviews, personal data, credentials, or production moderation authority. AQX core services must remain functional when no community devices participate.
+
 ## Deployment status
 
 This is source code only. It has not been deployed, connected to AQX Favorites, or tested against the pending WAV review. The small CPU models are a prototype, not a validated moderation authority. Image processing currently combines OCR and an explicit-content classifier; it does not understand general image context, so image-bearing reviews are held for human review. Do not enable automatic publication until security tests and a representative multilingual/media evaluation set pass.

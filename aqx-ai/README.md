@@ -8,7 +8,7 @@ AQX AI is an AQX-owned application layer for review moderation. It runs open-wei
 - Audio: Whisper tiny speech-to-text, loaded locally, then the transcript is moderated.
 - Images: local NSFW image classifier plus OCR. The current small CPU profile does not perform reliable general visual-semantic understanding, so image-bearing reviews are routed to human review unless a high-confidence explicit violation is detected.
 - Fail-closed: missing models, malformed output, unsupported media, or runtime errors never produce an approval.
-- Auto-publish is disabled by default and requires an explicit server-side setting after validation.
+- Auto-publish is hard-disabled in code; the current prototype cannot approve publication.
 
 Model weights are third-party open-weight artifacts, not AQX-authored intellectual property. The current manifest preparation utility verifies the declared Apache-2.0 license, resolves each model to an immutable commit, and mirrors it into the persistent AQX model volume. Inference loads only local paths with `local_files_only=True`; it does not call a hosted AI inference API or the model hub. AQX owns the orchestration, moderation policy, API, evaluation data, and deployment code. Third-party model copyrights and licenses remain with their respective authors.
 
@@ -29,13 +29,13 @@ The preparation step requires internet access once to acquire public model artif
 - Audio: [Whisper tiny](https://huggingface.co/openai/whisper-tiny) — Apache-2.0 as declared on the model card.
 - Image safety: [Falconsai NSFW image detection](https://huggingface.co/Falconsai/nsfw_image_detection) — Apache-2.0.
 
-The exact commit revisions actually acquired are recorded in `/models/model-manifest.json`. Review the licenses and model cards before commercial production use.
+The exact commit revisions and per-file SHA-256 checksums are recorded in `/models/model-manifest.json`. The container verifies this manifest before starting the API. Review the licenses and model cards before commercial production use.
 
 Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers.
 
 ## API
 
-- `GET /health`: runtime readiness (no secret required).
+- `GET /health`: process liveness and model-cache status (no secret required).
 - `POST /v1/analyze`: multipart form with optional `text`, `image`, and/or `audio`; requires `Authorization: Bearer <AQX_AI_INTERNAL_TOKEN>`.
 
 Response decisions: `publish`, `reject`, or `human_review`. The `publish_allowed` field is the authoritative gate and is currently hard-coded false; no environment variable can enable auto-publication.

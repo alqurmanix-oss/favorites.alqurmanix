@@ -49,6 +49,12 @@ html[dir="ltr"] .sidebar{direction:ltr}
 .progress i{background:linear-gradient(90deg,var(--primary),var(--primary2))}
 
 /* Final physical placement: Arabic sidebar and its scrollbar on the right; every other language on the left. */
+/* Scrollbar side is controlled by the scroll container direction, independently from content direction. */
+html[lang="ar"] #sidebar{direction:ltr!important;overflow-y:auto;scrollbar-gutter:stable;}
+html[lang="ar"] #sidebar>*{direction:rtl!important;}
+html:not([lang="ar"]) #sidebar{direction:rtl!important;overflow-y:auto;scrollbar-gutter:stable;}
+html:not([lang="ar"]) #sidebar>*{direction:ltr!important;}
+
 html[lang="ar"] .layout{direction:rtl!important}
 html[lang="ar"] #sidebar{direction:rtl!important;}
 html:not([lang="ar"]) .layout{direction:ltr!important}

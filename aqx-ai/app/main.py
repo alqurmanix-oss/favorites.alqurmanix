@@ -20,6 +20,7 @@ import httpx
 from scipy.signal import resample_poly
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from PIL import Image, UnidentifiedImageError
 from transformers import (
     AutoImageProcessor,
@@ -157,6 +158,22 @@ def _apply_safety_gate(result: dict[str, Any]) -> dict[str, Any]:
             "rationale": "Automatic publication is disabled pending validation.",
         }
     return result
+
+
+def _transcribe_samples(samples, sample_rate: int) -> str:
+    result = _asr_pipeline()(
+        {"raw": samples, "sampling_rate": sample_rate},
+        generate_kwargs={"task": "transcribe"},
+    )
+    return str(result.get("text", "")).strip()
+
+
+def _extract_image_ocr(image: Image.Image) -> str:
+    return pytesseract.image_to_string(image, lang="eng+ara")[:8000]
+
+
+def _classify_image_safety(image: Image.Image) -> list[dict[str, Any]]:
+    return _image_pipeline()(image)[:5]
 
 
 def _classify_text(text: str) -> dict[str, Any]:
@@ -346,11 +363,7 @@ async def analyze(
         if audio_bytes is not None:
             # Validate duration before decoding; use local FFmpeg for browser containers.
             samples, sample_rate = _decode_audio(audio_bytes)
-            audio_result = _asr_pipeline()(
-                {"raw": samples, "sampling_rate": sample_rate},
-                generate_kwargs={"task": "transcribe"},
-            )
-            transcript = str(audio_result.get("text", "")).strip()
+            transcript = await run_in_threadpool(_transcribe_samples, samples, sample_rate)
             extracted["transcript"] = transcript
             if transcript:
                 combined_text = (combined_text + "\n" + transcript).strip()
@@ -363,16 +376,13 @@ async def analyze(
                     pil_image = source_image.convert("RGB")
             except (UnidentifiedImageError, OSError):
                 raise HTTPException(status_code=415, detail="INVALID_IMAGE")
-            extracted["ocr_text"] = pytesseract.image_to_string(
-                pil_image, lang="eng+ara"
-            )[:8000]
-            scores = _image_pipeline()(pil_image)
-            extracted["image_safety"] = scores[:5]
+            extracted["ocr_text"] = await run_in_threadpool(_extract_image_ocr, pil_image)
+            extracted["image_safety"] = await run_in_threadpool(_classify_image_safety, pil_image)
             ocr = extracted["ocr_text"].strip()
             if ocr:
                 combined_text = (combined_text + "\n[Text extracted from image]\n" + ocr).strip()
 
-        text_result = _classify_text(combined_text) if combined_text else {
+        text_result = await run_in_threadpool(_classify_text, combined_text) if combined_text else {
             "decision": "human_review",
             "confidence": 0.0,
             "categories": ["no_text_for_semantic_review"],
@@ -491,11 +501,7 @@ async def audio_transcriptions(
     if audio_bytes is None:
         raise HTTPException(status_code=400, detail="AUDIO_REQUIRED")
     samples, sample_rate = _decode_audio(audio_bytes)
-    result = _asr_pipeline()(
-        {"raw": samples, "sampling_rate": sample_rate},
-        generate_kwargs={"task": "transcribe"},
-    )
-    transcript = str(result.get("text", "")).strip()
+    transcript = await run_in_threadpool(_transcribe_samples, samples, sample_rate)
     if not transcript:
         raise HTTPException(status_code=422, detail="AUDIO_TRANSCRIPT_EMPTY")
     return {"text": transcript, "model": "aqx-whisper-tiny"}
@@ -549,11 +555,11 @@ async def chat_completions(
     extracted_ocr: list[str] = []
     image_scores: list[dict[str, Any]] = []
     for image_url in image_urls:
-        pil_image = _review_image_from_signed_url(image_url)
-        ocr_text = pytesseract.image_to_string(pil_image, lang="eng+ara")[:8000]
+        pil_image = await run_in_threadpool(_review_image_from_signed_url, image_url)
+        ocr_text = await run_in_threadpool(_extract_image_ocr, pil_image)
         if ocr_text.strip():
             extracted_ocr.append(ocr_text.strip())
-        image_scores.extend(_image_pipeline()(pil_image)[:5])
+        image_scores.extend(await run_in_threadpool(_classify_image_safety, pil_image))
 
     if extracted_ocr:
         combined_text = (

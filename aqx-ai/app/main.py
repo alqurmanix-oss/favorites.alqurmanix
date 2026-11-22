@@ -20,9 +20,9 @@ from transformers import (
 )
 
 APP_NAME = "AQX AI"
-TEXT_MODEL = os.getenv("AQX_TEXT_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
-ASR_MODEL = os.getenv("AQX_ASR_MODEL", "openai/whisper-tiny")
-IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "Falconsai/nsfw_image_detection")
+TEXT_MODEL = os.getenv("AQX_TEXT_MODEL", "/models/text")
+ASR_MODEL = os.getenv("AQX_ASR_MODEL", "/models/asr")
+IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "/models/image")
 MAX_UPLOAD_BYTES = int(os.getenv("AQX_MAX_UPLOAD_MB", "10")) * 1024 * 1024
 MAX_AUDIO_SECONDS = int(os.getenv("AQX_MAX_AUDIO_SECONDS", "900"))
 MAX_IMAGE_PIXELS = int(os.getenv("AQX_MAX_IMAGE_PIXELS", "20000000"))
@@ -60,7 +60,7 @@ def _require_token(authorization: str | None) -> None:
 
 @lru_cache(maxsize=1)
 def _text_components():
-    tokenizer = AutoTokenizer.from_pretrained(TEXT_MODEL)
+    tokenizer = AutoTokenizer.from_pretrained(TEXT_MODEL, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(
         TEXT_MODEL,
         torch_dtype=torch.float32,

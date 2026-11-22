@@ -1,0 +1,254 @@
+from __future__ import annotations
+
+import hmac
+import io
+import json
+import os
+import re
+from functools import lru_cache
+from typing import Any
+
+import pytesseract
+import torch
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from PIL import Image, UnidentifiedImageError
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    pipeline,
+)
+
+APP_NAME = "AQX AI"
+TEXT_MODEL = os.getenv("AQX_TEXT_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
+ASR_MODEL = os.getenv("AQX_ASR_MODEL", "openai/whisper-tiny")
+IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "Falconsai/nsfw_image_detection")
+MAX_UPLOAD_BYTES = int(os.getenv("AQX_MAX_UPLOAD_MB", "10")) * 1024 * 1024
+AUTO_PUBLISH_ENABLED = os.getenv("AQX_AUTO_PUBLISH_ENABLED", "false").lower() == "true"
+
+app = FastAPI(title=APP_NAME, version="0.1.0")
+torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
+
+POLICY = """You are AQX's review-safety classifier. Classify the supplied review text
+and transcript, including multilingual content and context. Respectful criticism,
+negative opinions, complaints, and disagreement are allowed.
+Reject only clear violations: credible threats, targeted hate, harassment,
+sexual exploitation, fraud/scams, spam, illegal promotion, or exposed highly
+sensitive personal data. Ambiguous, quoted, reclaimed, contextual, or uncertain
+content must be sent to human_review, not rejected.
+Return ONLY valid JSON with keys:
+decision (publish|reject|human_review), confidence (number 0..1),
+categories (array of short strings), rationale (short string).
+Do not infer a violation merely from negative sentiment.
+"""
+
+
+def _require_token(authorization: str | None) -> None:
+    expected = os.getenv("AQX_AI_INTERNAL_TOKEN", "")
+    if not expected or len(expected) < 32:
+        raise HTTPException(status_code=503, detail="AQX_AI_NOT_CONFIGURED")
+    supplied = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        supplied = authorization[7:].strip()
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="UNAUTHORIZED")
+
+
+@lru_cache(maxsize=1)
+def _text_components():
+    tokenizer = AutoTokenizer.from_pretrained(TEXT_MODEL)
+    model = AutoModelForCausalLM.from_pretrained(
+        TEXT_MODEL,
+        torch_dtype=torch.float32,
+        low_cpu_mem_usage=True,
+    )
+    model.eval()
+    return tokenizer, model
+
+
+@lru_cache(maxsize=1)
+def _asr_pipeline():
+    return pipeline("automatic-speech-recognition", model=ASR_MODEL, device=-1)
+
+
+@lru_cache(maxsize=1)
+def _image_pipeline():
+    return pipeline("image-classification", model=IMAGE_MODEL, device=-1)
+
+
+def _classify_text(text: str) -> dict[str, Any]:
+    if not text.strip():
+        return {
+            "decision": "human_review",
+            "confidence": 0.0,
+            "categories": ["empty_or_unreadable_text"],
+            "rationale": "No usable text was extracted.",
+        }
+
+    tokenizer, model = _text_components()
+    messages = [
+        {"role": "system", "content": POLICY},
+        {"role": "user", "content": text[:12000]},
+    ]
+    prompt = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=4096)
+    with torch.inference_mode():
+        generated = model.generate(
+            **inputs,
+            max_new_tokens=220,
+            do_sample=False,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    answer = tokenizer.decode(
+        generated[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+    ).strip()
+    match = re.search(r"\{[\s\S]*\}", answer)
+    if not match:
+        raise RuntimeError("MODEL_RETURNED_INVALID_JSON")
+    parsed = json.loads(match.group(0))
+    decision = parsed.get("decision")
+    confidence = float(parsed.get("confidence", 0))
+    if decision not in {"publish", "reject", "human_review"}:
+        raise RuntimeError("MODEL_RETURNED_INVALID_DECISION")
+    if not 0 <= confidence <= 1:
+        raise RuntimeError("MODEL_RETURNED_INVALID_CONFIDENCE")
+    return {
+        "decision": decision,
+        "confidence": confidence,
+        "categories": parsed.get("categories", [])[:12],
+        "rationale": str(parsed.get("rationale", ""))[:500],
+    }
+
+
+async def _read_upload(file: UploadFile | None) -> bytes | None:
+    if file is None:
+        return None
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="UPLOAD_TOO_LARGE")
+    return data
+
+
+@app.get("/health")
+def health():
+    return {
+        "ok": True,
+        "service": "aqx-ai",
+        "version": "0.1.0",
+        "models_loaded": {
+            "text": _text_components.cache_info().currsize == 1,
+            "audio": _asr_pipeline.cache_info().currsize == 1,
+            "image": _image_pipeline.cache_info().currsize == 1,
+        },
+        "auto_publish_enabled": AUTO_PUBLISH_ENABLED,
+    }
+
+
+@app.post("/v1/analyze")
+async def analyze(
+    authorization: str | None = None,
+    text: str = Form(default=""),
+    image: UploadFile | None = File(default=None),
+    audio: UploadFile | None = File(default=None),
+):
+    _require_token(authorization)
+    image_bytes = await _read_upload(image)
+    audio_bytes = await _read_upload(audio)
+
+    if not text.strip() and image_bytes is None and audio_bytes is None:
+        raise HTTPException(status_code=400, detail="CONTENT_REQUIRED")
+
+    extracted: dict[str, Any] = {"transcript": None, "ocr_text": None, "image_safety": None}
+    has_image = image_bytes is not None
+    combined_text = text.strip()
+
+    try:
+        if audio_bytes is not None:
+            audio_result = _asr_pipeline()(
+                io.BytesIO(audio_bytes),
+                generate_kwargs={"task": "transcribe"},
+            )
+            transcript = str(audio_result.get("text", "")).strip()
+            extracted["transcript"] = transcript
+            if transcript:
+                combined_text = (combined_text + "\n" + transcript).strip()
+
+        if image_bytes is not None:
+            try:
+                pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            except (UnidentifiedImageError, OSError):
+                raise HTTPException(status_code=415, detail="INVALID_IMAGE")
+            extracted["ocr_text"] = pytesseract.image_to_string(
+                pil_image, lang="eng+ara"
+            )[:8000]
+            scores = _image_pipeline()(pil_image)
+            extracted["image_safety"] = scores[:5]
+            ocr = extracted["ocr_text"].strip()
+            if ocr:
+                combined_text = (combined_text + "\n[Text extracted from image]\n" + ocr).strip()
+
+        text_result = _classify_text(combined_text) if combined_text else {
+            "decision": "human_review",
+            "confidence": 0.0,
+            "categories": ["no_text_for_semantic_review"],
+            "rationale": "No text or transcript was available for semantic moderation.",
+        }
+
+        # Explicit high-confidence NSFW detection is a reject signal.
+        nsfw_score = 0.0
+        for row in extracted["image_safety"] or []:
+            label = str(row.get("label", "")).lower()
+            if "nsfw" in label or "porn" in label or "unsafe" in label:
+                nsfw_score = max(nsfw_score, float(row.get("score", 0)))
+        if has_image and nsfw_score >= 0.90:
+            decision = "reject"
+            categories = list(text_result["categories"]) + ["explicit_sexual_image"]
+            rationale = "The local image-safety model detected a high-confidence explicit-content signal."
+        elif has_image:
+            # This CPU starter has OCR + safety classification, not full visual
+            # scene understanding. Never auto-approve an image-bearing review.
+            decision = "human_review"
+            categories = list(text_result["categories"]) + ["image_semantics_require_human_review"]
+            rationale = "Image text and explicit-content signals were checked; full visual context needs human review."
+        else:
+            decision = text_result["decision"]
+            categories = text_result["categories"]
+            rationale = text_result["rationale"]
+
+        confidence = float(text_result["confidence"])
+        publish_allowed = bool(
+            AUTO_PUBLISH_ENABLED
+            and decision == "publish"
+            and confidence >= 0.98
+            and not has_image
+        )
+        if decision == "publish" and not publish_allowed:
+            decision = "human_review"
+
+        return {
+            "ok": True,
+            "engine": "AQX AI",
+            "engine_version": "0.1.0",
+            "decision": decision,
+            "confidence": confidence,
+            "publish_allowed": publish_allowed,
+            "categories": categories,
+            "rationale": rationale,
+            "extracted": extracted,
+            "policy": "aqx-review-safety-v1",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Fail closed. Never leak model internals or turn a failed inference into approval.
+        print(f"AQX_AI_INFERENCE_FAILURE: {type(exc).__name__}: {exc}", flush=True)
+        return {
+            "ok": False,
+            "engine": "AQX AI",
+            "decision": "human_review",
+            "confidence": 0.0,
+            "publish_allowed": False,
+            "categories": ["analysis_unavailable"],
+            "rationale": "The content could not be fully analyzed.",
+        }

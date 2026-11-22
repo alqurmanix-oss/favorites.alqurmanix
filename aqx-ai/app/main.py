@@ -362,7 +362,7 @@ async def analyze(
     try:
         if audio_bytes is not None:
             # Validate duration before decoding; use local FFmpeg for browser containers.
-            samples, sample_rate = _decode_audio(audio_bytes)
+            samples, sample_rate = await run_in_threadpool(_decode_audio, audio_bytes)
             transcript = await run_in_threadpool(_transcribe_samples, samples, sample_rate)
             extracted["transcript"] = transcript
             if transcript:

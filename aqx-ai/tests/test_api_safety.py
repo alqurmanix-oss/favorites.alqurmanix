@@ -378,3 +378,147 @@ def test_oversized_browser_audio_is_rejected_before_ffmpeg_decode(monkeypatch):
     assert response.status_code == 413
     assert calls == ["ffprobe"]
 
+def test_openai_compatible_chat_endpoint_matches_favorites_contract(monkeypatch):
+    import json
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    response = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "model": "aqx-local",
+            "messages": [{
+                "role": "user",
+                "content": [{
+                    "type": "text",
+                    "text": json.dumps({"rating": 5, "review": "A harmless review"}),
+                }],
+            }],
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    result = json.loads(payload["choices"][0]["message"]["content"])
+    assert result["decision"] == "review"
+    assert result["labels"] == []
+
+
+def test_openai_compatible_audio_transcription_endpoint(monkeypatch):
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main._decode_audio", lambda _data: ([0.0] * 1600, 16000))
+    monkeypatch.setattr(
+        "app.main._asr_pipeline",
+        lambda: lambda *_a, **_k: {"text": "AQX local spoken transcript"},
+    )
+    response = client.post(
+        "/v1/audio/transcriptions",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"model": "whisper-1"},
+        files={"file": ("review.wav", b"audio-bytes", "audio/wav")},
+    )
+    assert response.status_code == 200
+    assert response.json()["text"] == "AQX local spoken transcript"
+
+
+def test_openai_compatible_image_endpoint_blocks_untrusted_hosts(monkeypatch):
+    import json
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    response = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": json.dumps({"review": "Review"})},
+                    {"type": "image_url", "image_url": {
+                        "url": "https://example.com/storage/v1/object/sign/aqx-favorites-review-media/x.png?token=x"
+                    }},
+                ],
+            }],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_openai_compatible_image_endpoint_accepts_only_signed_aqx_media(monkeypatch):
+    import io
+    import json
+    from PIL import Image
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    image = Image.new("RGB", (8, 8), "white")
+    stream = io.BytesIO()
+    image.save(stream, format="PNG")
+    image_bytes = stream.getvalue()
+
+    class FakeResponse:
+        content = image_bytes
+        headers = {"content-type": "image/png"}
+
+        def raise_for_status(self):
+            return None
+
+    class FakeClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def get(self, url, **_kwargs):
+            assert url.startswith("https://vuszqzgldbsscuxdfhdz.supabase.co/")
+            return FakeResponse()
+
+    monkeypatch.setattr("app.main.httpx.Client", FakeClient)
+    monkeypatch.setattr("app.main.pytesseract.image_to_string", lambda *_a, **_k: "image text")
+    monkeypatch.setattr(
+        "app.main._image_pipeline",
+        lambda: lambda _image: [{"label": "normal", "score": 0.99}],
+    )
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    response = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": json.dumps({"review": "Review"})},
+                    {"type": "image_url", "image_url": {
+                        "url": "https://vuszqzgldbsscuxdfhdz.supabase.co/storage/v1/object/sign/aqx-favorites-review-media/123.png?token=signed"
+                    }},
+                ],
+            }],
+        },
+    )
+    assert response.status_code == 200
+    result = json.loads(response.json()["choices"][0]["message"]["content"])
+    assert result["decision"] == "review"
+    assert "image_semantics_require_human_review" in result["labels"]
+

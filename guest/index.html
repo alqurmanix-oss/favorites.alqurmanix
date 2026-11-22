@@ -92,8 +92,10 @@ html:not([lang="ar"]) #sidebar{direction:ltr!important;}
 
 /* Authoritative physical edge: do not rely on RTL/LTR logical inset rules. */
 @media(max-width:760px){
- html[data-menu-edge="right"] #sidebar.open{right:0!important;left:auto!important;inset-inline-start:auto!important;inset-inline-end:auto!important}
- html[data-menu-edge="left"] #sidebar.open{left:0!important;right:auto!important;inset-inline-start:auto!important;inset-inline-end:auto!important}
+ /* Arabic is RTL: inline-start is the physical right edge. */
+ html[dir="rtl"][data-menu-edge="right"] #sidebar.open{right:0!important;left:auto!important;inset-inline-start:0!important;inset-inline-end:auto!important}
+ /* Other languages are LTR: inline-start is the physical left edge. */
+ html[dir="ltr"][data-menu-edge="left"] #sidebar.open{left:0!important;right:auto!important;inset-inline-start:0!important;inset-inline-end:auto!important}
  html[data-menu-edge="right"] #mobileMenu{right:15px!important;left:auto!important}
  html[data-menu-edge="left"] #mobileMenu{left:15px!important;right:auto!important}
  html[data-menu-edge="right"] #sidebar .sidebar-close-row{justify-content:flex-start!important}

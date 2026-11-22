@@ -12,17 +12,18 @@ AQX AI is an AQX-owned application layer for review moderation. It runs open-wei
 
 Model weights are third-party open-weight artifacts, not AQX-authored intellectual property. The current manifest preparation utility verifies the declared Apache-2.0 license, resolves each model to an immutable commit, and mirrors it into the persistent AQX model volume. Inference loads only local paths with `local_files_only=True`; it does not call a hosted AI inference API or the model hub. AQX owns the orchestration, moderation policy, API, evaluation data, and deployment code. Third-party model copyrights and licenses remain with their respective authors.
 
-## Run locally
+## Run locally (one command)
+
+Requirements: Docker Engine/Desktop with Compose v2, Python 3, and an internet connection for the initial model download. From this directory run:
 
 ```bash
-cp .env.example .env
-# Set AQX_AI_INTERNAL_TOKEN to a random secret of at least 32 characters.
-docker compose build
-# One-time model acquisition into the AQX-owned persistent Docker volume:
-docker compose run --rm aqx-ai python scripts/prepare_models.py
-# Runtime inference is offline and reads only /models:
-docker compose up -d
+chmod +x scripts/start_local.sh
+./scripts/start_local.sh
 ```
+
+The launcher creates a private `.env` file and a random internal token if needed, builds the CPU container, downloads the models only when the persistent volume is empty or invalid, verifies every recorded SHA-256 checksum, and starts the service. Keep `.env` private. Subsequent inference uses local model files and does not call a hosted AI inference API.
+
+To run the steps manually, copy `.env.example` to `.env`, set a random `AQX_AI_INTERNAL_TOKEN` of at least 32 characters, then run `docker compose build`, `docker compose run --rm aqx-ai python scripts/prepare_models.py`, and `docker compose up -d`.
 
 The preparation step requires internet access once to acquire public model artifacts. Subsequent inference is local-only. The current model set is:
 - Text: [Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) — Apache-2.0.

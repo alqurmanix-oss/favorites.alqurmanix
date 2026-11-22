@@ -24,7 +24,8 @@ TEXT_MODEL = os.getenv("AQX_TEXT_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 ASR_MODEL = os.getenv("AQX_ASR_MODEL", "openai/whisper-tiny")
 IMAGE_MODEL = os.getenv("AQX_IMAGE_SAFETY_MODEL", "Falconsai/nsfw_image_detection")
 MAX_UPLOAD_BYTES = int(os.getenv("AQX_MAX_UPLOAD_MB", "10")) * 1024 * 1024
-AUTO_PUBLISH_ENABLED = os.getenv("AQX_AUTO_PUBLISH_ENABLED", "false").lower() == "true"
+# Deliberately hard-disabled until AQX completes a documented multilingual/media validation campaign.
+AUTO_PUBLISH_ENABLED = False
 
 app = FastAPI(title=APP_NAME, version="0.1.0")
 torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))

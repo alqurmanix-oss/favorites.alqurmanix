@@ -245,7 +245,9 @@ async def analyze(
             "rationale": "No text or transcript was available for semantic moderation.",
         }
 
-        text_result = _apply_safety_gate(text_result)\n\n        # Explicit high-confidence NSFW detection is a reject signal.
+        text_result = _apply_safety_gate(text_result)
+
+        # Explicit high-confidence NSFW detection is a reject signal.
         nsfw_score = 0.0
         for row in extracted["image_safety"] or []:
             label = str(row.get("label", "")).lower()

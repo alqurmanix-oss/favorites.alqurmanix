@@ -205,11 +205,28 @@ async def analyze(
 
     try:
         if audio_bytes is not None:
-            samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
-            if sample_rate <= 0 or len(samples) == 0:
+            # Inspect container metadata before decoding to avoid allocating memory
+            # for an oversized or pathological audio stream.
+            try:
+                audio_info = sf.info(io.BytesIO(audio_bytes))
+            except (RuntimeError, ValueError, OSError):
                 raise HTTPException(status_code=415, detail="INVALID_AUDIO")
-            if len(samples) / sample_rate > MAX_AUDIO_SECONDS:
+            if (
+                audio_info.samplerate <= 0
+                or audio_info.frames <= 0
+                or audio_info.channels <= 0
+                or audio_info.channels > 8
+                or audio_info.samplerate > 96000
+            ):
+                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+            if audio_info.frames / audio_info.samplerate > MAX_AUDIO_SECONDS:
                 raise HTTPException(status_code=413, detail="AUDIO_TOO_LONG")
+            try:
+                samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+            except (RuntimeError, ValueError, OSError):
+                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+            if sample_rate != audio_info.samplerate or len(samples) == 0:
+                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
             if getattr(samples, "ndim", 1) == 2:
                 samples = samples.mean(axis=1)
             audio_result = _asr_pipeline()(

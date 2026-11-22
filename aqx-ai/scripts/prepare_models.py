@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -37,11 +38,21 @@ def main() -> None:
             revision=info.sha,
             local_dir=str(destination),
         )
+        file_hashes = {}
+        for artifact in sorted(destination.rglob("*")):
+            if artifact.is_file() and ".cache" not in artifact.parts:
+                digest = hashlib.sha256()
+                with artifact.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                file_hashes[str(artifact.relative_to(destination))] = digest.hexdigest()
+
         manifest["models"][name] = {
             "repo_id": repo_id,
             "revision": info.sha,
             "license": declared_license,
             "local_path": str(destination),
+            "files_sha256": file_hashes,
         }
 
     manifest_path = ROOT / "model-manifest.json"

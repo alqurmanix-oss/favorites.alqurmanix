@@ -40,6 +40,19 @@ Inference endpoints now use per-process admission control. Defaults are one acti
 
 Configure `AQX_MAX_CONCURRENT_INFERENCES` and `AQX_MAX_QUEUED_INFERENCES` to match the actual CPU/RAM budget. Keep concurrency at 1 for the small CPU model profile until measured otherwise. These limits are per application process, not global across replicas; each replica needs its own resource budget and an upstream load balancer. This is overload protection, not proof of a specific requests-per-second or user capacity. A real load test on the target host is still required before production.
 
+## Load-control verification
+
+The inference routes use bounded per-process admission control (default: one active inference plus eight admitted requests). Model loading, audio decoding/transcription, OCR, image classification, and text inference are dispatched through the worker thread pool so CPU-heavy work does not block the ASGI event loop. Requests beyond the configured capacity receive HTTP 429 with `Retry-After: 5`. The `/health` response reports configured capacity and current admitted requests; Docker Compose also checks process health through `/health`.
+
+Run the admission-control tests from this directory after building the image:
+
+```bash
+docker compose build
+docker compose run --rm --no-deps aqx-ai pytest -q tests/test_load_control.py
+```
+
+These are software-level tests only. They do not establish production throughput. Before production, run a load test on the actual host with representative text, image, and audio payloads, then tune concurrency to measured CPU/RAM and latency. Limits are per process, not global across replicas.
+
 ## API
 
 - `GET /health`: process liveness and model-cache status (no secret required).

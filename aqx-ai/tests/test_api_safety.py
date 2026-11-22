@@ -254,3 +254,38 @@ def test_audio_transcript_is_analyzed_but_never_auto_published(monkeypatch):
     assert payload["publish_allowed"] is False
     assert payload["extracted"]["transcript"] == "A harmless spoken review"
 
+def test_audio_is_resampled_to_whisper_rate(monkeypatch):
+    import io
+    import soundfile as sf
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    observed = {}
+
+    def transcribe(payload, **_kwargs):
+        observed["sampling_rate"] = payload["sampling_rate"]
+        observed["sample_count"] = len(payload["raw"])
+        return {"text": "spoken review"}
+
+    monkeypatch.setattr("app.main._asr_pipeline", lambda: transcribe)
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    audio = io.BytesIO()
+    sf.write(audio, [0.0] * 800, 8000, format="WAV")
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"audio": ("review.wav", audio.getvalue(), "audio/wav")},
+    )
+    assert response.status_code == 200
+    assert observed["sampling_rate"] == 16000
+    assert observed["sample_count"] == 1600
+    assert response.json()["decision"] == "human_review"
+

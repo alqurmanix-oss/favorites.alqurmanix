@@ -314,7 +314,7 @@ def test_browser_audio_container_uses_bounded_local_ffmpeg_decode(monkeypatch):
                 }).encode(),
                 stderr=b"",
             )
-        return SimpleNamespace(stdout=b"\\x00" * (1600 * 4), stderr=b"")
+        return SimpleNamespace(stdout=b"\x00" * (1600 * 4), stderr=b"")
 
     monkeypatch.setattr("app.main.subprocess.run", fake_run)
     observed = {}

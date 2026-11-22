@@ -9,6 +9,7 @@ import re
 import subprocess
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse
 
 import numpy as np
 import pytesseract
@@ -397,7 +398,7 @@ async def analyze(
 
 def _review_image_from_signed_url(raw_url: str) -> Image.Image:
     try:
-        parsed = __import__("urllib.parse", fromlist=["urlparse"]).urlparse(raw_url)
+        parsed = urlparse(raw_url)
         allowed_hosts = {
             host.strip().lower()
             for host in os.getenv(
@@ -498,7 +499,6 @@ async def chat_completions(
         try:
             decoded = json.loads(combined_text)
             if isinstance(decoded, dict):
-                review_payload = decoded
                 combined_text = str(decoded.get("review", combined_text)).strip()
         except json.JSONDecodeError:
             pass

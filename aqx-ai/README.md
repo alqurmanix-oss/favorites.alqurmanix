@@ -32,12 +32,14 @@ The preparation step requires internet access once to acquire public model artif
 
 The exact commit revisions and per-file SHA-256 checksums are recorded in `/models/model-manifest.json`. Runtime dependencies are pinned, including Accelerate for low-memory model loading, NumPy/SciPy for audio processing, and the container's FFmpeg binary for browser audio containers. The container verifies this manifest before starting the API. Review the licenses and model cards before commercial production use.
 
-Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers.
+Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers. To connect the existing AQX Favorites Edge Function without changing its code, set these Supabase Edge Function secrets after the local AQX AI service has a reachable HTTPS endpoint: `AQX_AI_BASE_URL=https://<AQX-AI-HOST>/v1/`, `AQX_AI_API_KEY=<same AQX_AI_INTERNAL_TOKEN>`, `AQX_AI_MODEL=aqx-local`, `AQX_AUDIO_MODEL=whisper-tiny`, and `AQX_VISION_MODEL=aqx-local-vision`. The existing Favorites moderation worker then calls only the AQX local compatibility endpoints; keep its existing fail-closed behavior.
 
 ## API
 
 - `GET /health`: process liveness and model-cache status (no secret required).
 - `POST /v1/analyze`: multipart form with optional `text`, `image`, and/or `audio`; requires `Authorization: Bearer <AQX_AI_INTERNAL_TOKEN>`.
+- `POST /v1/audio/transcriptions`: OpenAI-compatible local Whisper transcription endpoint.
+- `POST /v1/chat/completions`: OpenAI-compatible local moderation endpoint used by the existing AQX Favorites Edge Function. It accepts review text and signed review-image URLs, but only fetches images from the exact host and signed path configured by `AQX_ALLOWED_MEDIA_HOSTS`.
 
 Response decisions: `publish`, `reject`, or `human_review`. The `publish_allowed` field is the authoritative gate and is currently hard-coded false; no environment variable can enable auto-publication.
 

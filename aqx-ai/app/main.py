@@ -77,6 +77,26 @@ def _image_pipeline():
     return pipeline("image-classification", model=IMAGE_MODEL, device=-1)
 
 
+def _apply_safety_gate(result: dict[str, Any]) -> dict[str, Any]:
+    """Conservative decision gate: uncertain model outputs go to a human."""
+    decision = result.get("decision")
+    confidence = float(result.get("confidence", 0.0))
+    if decision == "reject" and confidence < 0.98:
+        return {
+            **result,
+            "decision": "human_review",
+            "rationale": "Potential violation requires human confirmation.",
+        }
+    # Publishing is never authorized by this prototype, regardless of model output.
+    if decision == "publish":
+        return {
+            **result,
+            "decision": "human_review",
+            "rationale": "Automatic publication is disabled pending validation.",
+        }
+    return result
+
+
 def _classify_text(text: str) -> dict[str, Any]:
     if not text.strip():
         return {
@@ -200,7 +220,7 @@ async def analyze(
             "rationale": "No text or transcript was available for semantic moderation.",
         }
 
-        # Explicit high-confidence NSFW detection is a reject signal.
+        text_result = _apply_safety_gate(text_result)\n\n        # Explicit high-confidence NSFW detection is a reject signal.
         nsfw_score = 0.0
         for row in extracted["image_safety"] or []:
             label = str(row.get("label", "")).lower()

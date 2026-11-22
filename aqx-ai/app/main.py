@@ -493,8 +493,7 @@ async def chat_completions(
     else:
         raise HTTPException(status_code=400, detail="UNSUPPORTED_MESSAGE_CONTENT")
 
-    review_payload: dict[str, Any] = {}
-    combined_text = "\\n".join(text_parts).strip()
+    combined_text = "\n".join(text_parts).strip()
     if combined_text:
         try:
             decoded = json.loads(combined_text)
@@ -514,8 +513,8 @@ async def chat_completions(
 
     if extracted_ocr:
         combined_text = (
-            combined_text + "\\n[Text extracted from attached images]\\n"
-            + "\\n".join(extracted_ocr)
+            combined_text + "\n[Text extracted from attached images]\n"
+            + "\n".join(extracted_ocr)
         ).strip()
 
     text_result = _classify_text(combined_text) if combined_text else {

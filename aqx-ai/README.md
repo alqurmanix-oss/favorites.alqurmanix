@@ -5,7 +5,7 @@ AQX AI is an AQX-owned application layer for review moderation. It runs open-wei
 ## Current bootstrap scope
 
 - Text moderation: Qwen2.5-0.5B-Instruct, loaded locally.
-- Audio: Whisper tiny speech-to-text, loaded locally, then the transcript is moderated.
+- Audio: Whisper tiny speech-to-text, loaded locally, then the transcript is moderated. WAV/MP3/OGG use SoundFile when supported; browser/container formats such as WebM/MP4 use a bounded local FFmpeg decode path. Audio is normalized to Whisper's 16 kHz input rate.
 - Images: local NSFW image classifier plus OCR. The current small CPU profile does not perform reliable general visual-semantic understanding, so image-bearing reviews are routed to human review unless a high-confidence explicit violation is detected.
 - Fail-closed: missing models, malformed output, unsupported media, or runtime errors never produce an approval.
 - Auto-publish is hard-disabled in code; the current prototype cannot approve publication.
@@ -30,7 +30,7 @@ The preparation step requires internet access once to acquire public model artif
 - Audio: [Whisper tiny](https://huggingface.co/openai/whisper-tiny) — Apache-2.0 as declared on the model card.
 - Image safety: [Falconsai NSFW image detection](https://huggingface.co/Falconsai/nsfw_image_detection) — Apache-2.0.
 
-The exact commit revisions and per-file SHA-256 checksums are recorded in `/models/model-manifest.json`. The container verifies this manifest before starting the API. Review the licenses and model cards before commercial production use.
+The exact commit revisions and per-file SHA-256 checksums are recorded in `/models/model-manifest.json`. Runtime dependencies are pinned, including Accelerate for low-memory model loading, NumPy/SciPy for audio processing, and the container's FFmpeg binary for browser audio containers. The container verifies this manifest before starting the API. Review the licenses and model cards before commercial production use.
 
 Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers.
 

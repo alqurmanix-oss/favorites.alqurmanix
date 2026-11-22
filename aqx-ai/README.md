@@ -34,6 +34,12 @@ The exact commit revisions and per-file SHA-256 checksums are recorded in `/mode
 
 Set a long random `AQX_AI_INTERNAL_TOKEN` before exposing the API. Do not expose this token to browsers. To connect the existing AQX Favorites Edge Function without changing its code, set these Supabase Edge Function secrets after the local AQX AI service has a reachable HTTPS endpoint: `AQX_AI_BASE_URL=https://<AQX-AI-HOST>/v1/`, `AQX_AI_API_KEY=<same AQX_AI_INTERNAL_TOKEN>`, `AQX_AI_MODEL=aqx-local`, `AQX_AUDIO_MODEL=whisper-tiny`, and `AQX_VISION_MODEL=aqx-local-vision`. The existing Favorites moderation worker then calls only the AQX local compatibility endpoints; keep its existing fail-closed behavior.
 
+## Bounded load handling
+
+Inference endpoints now use per-process admission control. Defaults are one active inference and up to eight admitted requests waiting for that slot. Requests beyond that bounded capacity receive HTTP 429 with a `Retry-After: 5` header instead of accumulating without limit. The `/health` response reports the configured limits and current admitted-request count.
+
+Configure `AQX_MAX_CONCURRENT_INFERENCES` and `AQX_MAX_QUEUED_INFERENCES` to match the actual CPU/RAM budget. Keep concurrency at 1 for the small CPU model profile until measured otherwise. These limits are per application process, not global across replicas; each replica needs its own resource budget and an upstream load balancer. This is overload protection, not proof of a specific requests-per-second or user capacity. A real load test on the target host is still required before production.
+
 ## API
 
 - `GET /health`: process liveness and model-cache status (no secret required).

@@ -1,0 +1,35 @@
+name: AQX AI safety checks
+
+on:
+  push:
+    branches: [aqx-ai-bootstrap]
+    paths:
+      - "aqx-ai/**"
+      - ".github/workflows/aqx-ai-ci.yml"
+  pull_request:
+    paths:
+      - "aqx-ai/**"
+      - ".github/workflows/aqx-ai-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aqx-ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: aqx-ai/requirements.txt
+      - name: Install CPU PyTorch
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run safety tests
+        run: python -m pytest -q

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "AQX Favorites — احفظ أي صفحة",
+  "short_name": "AQX Favorites",
+  "version": "1.0.0",
+  "description": "احفظ الروابط من أي موقع إلى مكتبة AQX Favorites، مع طابور حفظ يعمل دون اتصال.",
+  "permissions": ["activeTab", "storage", "contextMenus", "alarms"],
+  "host_permissions": ["https://vuszqzgldbsscuxdfhdz.supabase.co/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "احفظ في AQX Favorites",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "save-current-page": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "احفظ الصفحة الحالية في AQX Favorites"
+    }
+  }
+}

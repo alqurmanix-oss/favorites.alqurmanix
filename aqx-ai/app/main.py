@@ -6,9 +6,11 @@ import json
 import math
 import os
 import re
+import subprocess
 from functools import lru_cache
 from typing import Any
 
+import numpy as np
 import pytesseract
 import soundfile as sf
 import torch
@@ -172,6 +174,95 @@ async def _read_upload(file: UploadFile | None) -> bytes | None:
     return data
 
 
+
+def _decode_audio_with_ffmpeg(audio_bytes: bytes):
+    """Decode browser/container audio formats locally after bounded metadata probing."""
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration:stream=codec_type,sample_rate,channels,duration",
+                "-of", "json", "pipe:0",
+            ],
+            input=audio_bytes,
+            capture_output=True,
+            timeout=20,
+            check=True,
+        )
+        metadata = json.loads(probe.stdout.decode("utf-8"))
+        audio_stream = next(
+            (stream for stream in metadata.get("streams", []) if stream.get("codec_type") == "audio"),
+            None,
+        )
+        if not audio_stream:
+            raise ValueError("No audio stream")
+        sample_rate = int(audio_stream.get("sample_rate") or 0)
+        channels = int(audio_stream.get("channels") or 0)
+        duration_raw = metadata.get("format", {}).get("duration") or audio_stream.get("duration")
+        duration = float(duration_raw or 0)
+    except Exception as exc:
+        raise HTTPException(status_code=415, detail="INVALID_AUDIO") from exc
+
+    if sample_rate <= 0 or sample_rate > 96000 or channels <= 0 or channels > 8 or duration <= 0:
+        raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+    if duration > MAX_AUDIO_SECONDS:
+        raise HTTPException(status_code=413, detail="AUDIO_TOO_LONG")
+
+    try:
+        decoded = subprocess.run(
+            [
+                "ffmpeg", "-nostdin", "-v", "error", "-i", "pipe:0",
+                "-t", str(MAX_AUDIO_SECONDS), "-ac", "1", "-ar", "16000",
+                "-f", "f32le", "pipe:1",
+            ],
+            input=audio_bytes,
+            capture_output=True,
+            timeout=120,
+            check=True,
+        )
+        max_output = MAX_AUDIO_SECONDS * 16000 * 4
+        if not decoded.stdout or len(decoded.stdout) > max_output:
+            raise ValueError("Decoded audio size is invalid")
+        samples = np.frombuffer(decoded.stdout, dtype=np.float32).copy()
+        if samples.size == 0 or not np.isfinite(samples).all():
+            raise ValueError("Decoded audio samples are invalid")
+        return samples, 16000
+    except Exception as exc:
+        raise HTTPException(status_code=415, detail="INVALID_AUDIO") from exc
+
+
+def _decode_audio(audio_bytes: bytes):
+    try:
+        audio_info = sf.info(io.BytesIO(audio_bytes))
+    except (RuntimeError, ValueError, OSError):
+        return _decode_audio_with_ffmpeg(audio_bytes)
+
+    if (
+        audio_info.samplerate <= 0
+        or audio_info.frames <= 0
+        or audio_info.channels <= 0
+        or audio_info.channels > 8
+        or audio_info.samplerate > 96000
+    ):
+        raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+    if audio_info.frames / audio_info.samplerate > MAX_AUDIO_SECONDS:
+        raise HTTPException(status_code=413, detail="AUDIO_TOO_LONG")
+    try:
+        samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+    except (RuntimeError, ValueError, OSError):
+        return _decode_audio_with_ffmpeg(audio_bytes)
+    if sample_rate != audio_info.samplerate or len(samples) == 0:
+        raise HTTPException(status_code=415, detail="INVALID_AUDIO")
+    if getattr(samples, "ndim", 1) == 2:
+        samples = samples.mean(axis=1)
+    if sample_rate != 16000:
+        divisor = math.gcd(int(sample_rate), 16000)
+        samples = resample_poly(
+            samples, 16000 // divisor, int(sample_rate) // divisor
+        )
+        sample_rate = 16000
+    return samples, sample_rate
+
 @app.get("/health")
 def health():
     return {
@@ -207,38 +298,8 @@ async def analyze(
 
     try:
         if audio_bytes is not None:
-            # Inspect container metadata before decoding to avoid allocating memory
-            # for an oversized or pathological audio stream.
-            try:
-                audio_info = sf.info(io.BytesIO(audio_bytes))
-            except (RuntimeError, ValueError, OSError):
-                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
-            if (
-                audio_info.samplerate <= 0
-                or audio_info.frames <= 0
-                or audio_info.channels <= 0
-                or audio_info.channels > 8
-                or audio_info.samplerate > 96000
-            ):
-                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
-            if audio_info.frames / audio_info.samplerate > MAX_AUDIO_SECONDS:
-                raise HTTPException(status_code=413, detail="AUDIO_TOO_LONG")
-            try:
-                samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
-            except (RuntimeError, ValueError, OSError):
-                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
-            if sample_rate != audio_info.samplerate or len(samples) == 0:
-                raise HTTPException(status_code=415, detail="INVALID_AUDIO")
-            if getattr(samples, "ndim", 1) == 2:
-                samples = samples.mean(axis=1)
-            # Whisper expects 16 kHz audio. Resample locally instead of passing
-            # a mismatched sample rate that would fail inference or distort timing.
-            if sample_rate != 16000:
-                divisor = math.gcd(int(sample_rate), 16000)
-                samples = resample_poly(
-                    samples, 16000 // divisor, int(sample_rate) // divisor
-                )
-                sample_rate = 16000
+            # Validate duration before decoding; use local FFmpeg for browser containers.
+            samples, sample_rate = _decode_audio(audio_bytes)
             audio_result = _asr_pipeline()(
                 {"raw": samples, "sampling_rate": sample_rate},
                 generate_kwargs={"task": "transcribe"},

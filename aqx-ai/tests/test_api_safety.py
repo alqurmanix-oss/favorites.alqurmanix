@@ -160,3 +160,97 @@ def test_audio_duration_is_checked_before_decoding(monkeypatch):
         files={"audio": ("long.wav", b"metadata-placeholder", "audio/wav")},
     )
     assert response.status_code == 413
+
+def test_image_reviews_never_auto_publish(monkeypatch):
+    import io
+    from PIL import Image
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main.pytesseract.image_to_string", lambda *_a, **_k: "safe image text")
+    monkeypatch.setattr(
+        "app.main._image_pipeline",
+        lambda: lambda _image: [{"label": "normal", "score": 0.99}],
+    )
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    image = Image.new("RGB", (8, 8), "white")
+    stream = io.BytesIO()
+    image.save(stream, format="PNG")
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "A harmless review"},
+        files={"image": ("safe.png", stream.getvalue(), "image/png")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["decision"] == "human_review"
+    assert payload["publish_allowed"] is False
+
+
+def test_high_confidence_explicit_image_is_rejected(monkeypatch):
+    import io
+    from PIL import Image
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main.pytesseract.image_to_string", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        "app.main._image_pipeline",
+        lambda: lambda _image: [{"label": "nsfw", "score": 0.99}],
+    )
+    image = Image.new("RGB", (8, 8), "white")
+    stream = io.BytesIO()
+    image.save(stream, format="PNG")
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"image": ("unsafe.png", stream.getvalue(), "image/png")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["decision"] == "reject"
+    assert payload["publish_allowed"] is False
+
+
+def test_audio_transcript_is_analyzed_but_never_auto_published(monkeypatch):
+    import io
+    import soundfile as sf
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr(
+        "app.main._asr_pipeline",
+        lambda: lambda *_a, **_k: {"text": "A harmless spoken review"},
+    )
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    audio = io.BytesIO()
+    sf.write(audio, [0.0] * 1600, 16000, format="WAV")
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "A harmless review"},
+        files={"audio": ("review.wav", audio.getvalue(), "audio/wav")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["decision"] == "human_review"
+    assert payload["publish_allowed"] is False
+    assert payload["extracted"]["transcript"] == "A harmless spoken review"
+

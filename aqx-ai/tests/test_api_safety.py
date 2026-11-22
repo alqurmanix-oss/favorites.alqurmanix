@@ -120,3 +120,43 @@ def test_upload_size_limit_is_enforced(monkeypatch):
         files={"image": ("large.png", b"12345", "image/png")},
     )
     assert response.status_code == 413
+
+
+
+def test_malformed_audio_is_rejected_before_model_inference(monkeypatch):
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "Review with invalid audio"},
+        files={"audio": ("broken.wav", b"not-audio", "audio/wav")},
+    )
+    assert response.status_code == 415
+
+
+def test_audio_duration_is_checked_before_decoding(monkeypatch):
+    from types import SimpleNamespace
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr(
+        "app.main.sf.info",
+        lambda _stream: SimpleNamespace(
+            samplerate=16000,
+            frames=16000 * 901,
+            channels=1,
+        ),
+    )
+
+    def decoding_must_not_run(*_args, **_kwargs):
+        raise AssertionError("audio decoding ran before duration validation")
+
+    monkeypatch.setattr("app.main.sf.read", decoding_must_not_run)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"text": "Review"},
+        files={"audio": ("long.wav", b"metadata-placeholder", "audio/wav")},
+    )
+    assert response.status_code == 413

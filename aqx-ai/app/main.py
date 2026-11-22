@@ -14,7 +14,11 @@ import torch
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from transformers import (
+    AutoImageProcessor,
     AutoModelForCausalLM,
+    AutoModelForImageClassification,
+    AutoModelForSpeechSeq2Seq,
+    AutoProcessor,
     AutoTokenizer,
     pipeline,
 )
@@ -65,6 +69,7 @@ def _text_components():
         TEXT_MODEL,
         torch_dtype=torch.float32,
         low_cpu_mem_usage=True,
+        local_files_only=True,
     )
     model.eval()
     return tokenizer, model
@@ -72,12 +77,22 @@ def _text_components():
 
 @lru_cache(maxsize=1)
 def _asr_pipeline():
-    return pipeline("automatic-speech-recognition", model=ASR_MODEL, device=-1)
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(ASR_MODEL, local_files_only=True)
+    processor = AutoProcessor.from_pretrained(ASR_MODEL, local_files_only=True)
+    return pipeline(
+        "automatic-speech-recognition",
+        model=model,
+        tokenizer=processor.tokenizer,
+        feature_extractor=processor.feature_extractor,
+        device=-1,
+    )
 
 
 @lru_cache(maxsize=1)
 def _image_pipeline():
-    return pipeline("image-classification", model=IMAGE_MODEL, device=-1)
+    model = AutoModelForImageClassification.from_pretrained(IMAGE_MODEL, local_files_only=True)
+    processor = AutoImageProcessor.from_pretrained(IMAGE_MODEL, local_files_only=True)
+    return pipeline("image-classification", model=model, image_processor=processor, device=-1)
 
 
 def _apply_safety_gate(result: dict[str, Any]) -> dict[str, Any]:

@@ -49,3 +49,24 @@ def test_non_inference_routes_bypass_admission_limit():
         return response.status_code
 
     assert asyncio.run(run_request()) == 204
+
+
+def test_waiting_request_times_out_and_releases_admission_slot(monkeypatch):
+    original_semaphore = main._inference_semaphore
+    original_timeout = main.QUEUE_WAIT_TIMEOUT_SECONDS
+    monkeypatch.setattr(main, "_inference_semaphore", asyncio.Semaphore(0))
+    monkeypatch.setattr(main, "QUEUE_WAIT_TIMEOUT_SECONDS", 0.01)
+
+    async def run_request():
+        async def call_next(_request):
+            return Response(status_code=200)
+
+        return await main.bound_inference_load(_request(), call_next)
+
+    try:
+        response = asyncio.run(run_request())
+        assert response.status_code == 503
+        assert main._admitted_requests == 0
+    finally:
+        monkeypatch.setattr(main, "_inference_semaphore", original_semaphore)
+        monkeypatch.setattr(main, "QUEUE_WAIT_TIMEOUT_SECONDS", original_timeout)

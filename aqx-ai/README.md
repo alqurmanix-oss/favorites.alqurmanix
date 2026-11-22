@@ -42,7 +42,7 @@ Configure `AQX_MAX_CONCURRENT_INFERENCES` and `AQX_MAX_QUEUED_INFERENCES` to mat
 
 ## Load-control verification
 
-The inference routes use bounded per-process admission control (default: one active inference plus eight admitted requests). Model loading, audio decoding/transcription, OCR, image classification, and text inference are dispatched through the worker thread pool so CPU-heavy work does not block the ASGI event loop. Requests beyond the configured capacity receive HTTP 429 with `Retry-After: 5`. The `/health` response reports configured capacity and current admitted requests; Docker Compose also checks process health through `/health`.
+The inference routes use bounded per-process admission control (default: one active inference plus eight admitted requests). Model loading, audio decoding/transcription, OCR, image classification, and text inference are dispatched through the worker thread pool so CPU-heavy work does not block the ASGI event loop. Requests beyond the configured capacity receive HTTP 429 with `Retry-After: 5`. Individual requests are bounded to 12,000 text characters and four attached review images by default; oversized requests are rejected with HTTP 413. The `/health` response reports configured capacity and current admitted requests; Docker Compose also checks process health through `/health`.
 
 Run the admission-control tests from this directory after building the image:
 

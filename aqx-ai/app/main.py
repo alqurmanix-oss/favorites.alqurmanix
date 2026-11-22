@@ -9,8 +9,9 @@ from functools import lru_cache
 from typing import Any
 
 import pytesseract
+import soundfile as sf
 import torch
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from transformers import (
     AutoModelForCausalLM,
@@ -147,7 +148,7 @@ def health():
 
 @app.post("/v1/analyze")
 async def analyze(
-    authorization: str | None = None,
+    authorization: str | None = Header(default=None),
     text: str = Form(default=""),
     image: UploadFile | None = File(default=None),
     audio: UploadFile | None = File(default=None),
@@ -165,8 +166,11 @@ async def analyze(
 
     try:
         if audio_bytes is not None:
+            samples, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+            if getattr(samples, "ndim", 1) == 2:
+                samples = samples.mean(axis=1)
             audio_result = _asr_pipeline()(
-                io.BytesIO(audio_bytes),
+                {"raw": samples, "sampling_rate": sample_rate},
                 generate_kwargs={"task": "transcribe"},
             )
             transcript = str(audio_result.get("text", "")).strip()

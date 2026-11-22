@@ -14,8 +14,9 @@ import numpy as np
 import pytesseract
 import soundfile as sf
 import torch
+import httpx
 from scipy.signal import resample_poly
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
 from transformers import (
     AutoImageProcessor,
@@ -392,3 +393,178 @@ async def analyze(
             "categories": ["analysis_unavailable"],
             "rationale": "The content could not be fully analyzed.",
         }
+
+
+def _review_image_from_signed_url(raw_url: str) -> Image.Image:
+    try:
+        parsed = __import__("urllib.parse", fromlist=["urlparse"]).urlparse(raw_url)
+        allowed_hosts = {
+            host.strip().lower()
+            for host in os.getenv(
+                "AQX_ALLOWED_MEDIA_HOSTS", "vuszqzgldbsscuxdfhdz.supabase.co"
+            ).split(",")
+            if host.strip()
+        }
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname is None
+            or parsed.hostname.lower() not in allowed_hosts
+            or parsed.username
+            or parsed.password
+            or parsed.port not in (None, 443)
+            or not parsed.path.startswith(
+                "/storage/v1/object/sign/aqx-favorites-review-media/"
+            )
+        ):
+            raise ValueError("Untrusted image URL")
+        with httpx.Client(timeout=12.0, follow_redirects=False, trust_env=False) as client:
+            response = client.get(
+                raw_url,
+                headers={"Accept": "image/jpeg,image/png,image/webp"},
+            )
+        response.raise_for_status()
+        if len(response.content) > 1536 * 1024:
+            raise ValueError("Image exceeds review media limit")
+        if not response.headers.get("content-type", "").lower().startswith("image/"):
+            raise ValueError("URL did not return an image")
+        with Image.open(io.BytesIO(response.content)) as source:
+            if source.width * source.height > MAX_IMAGE_PIXELS:
+                raise ValueError("Image dimensions exceed configured limit")
+            return source.convert("RGB")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="REVIEW_IMAGE_UNAVAILABLE") from exc
+
+
+@app.post("/v1/audio/transcriptions")
+async def audio_transcriptions(
+    authorization: str | None = Header(default=None),
+    file: UploadFile = File(...),
+    model: str = Form(default="whisper-tiny"),
+):
+    _require_token(authorization)
+    audio_bytes = await _read_upload(file)
+    if audio_bytes is None:
+        raise HTTPException(status_code=400, detail="AUDIO_REQUIRED")
+    samples, sample_rate = _decode_audio(audio_bytes)
+    result = _asr_pipeline()(
+        {"raw": samples, "sampling_rate": sample_rate},
+        generate_kwargs={"task": "transcribe"},
+    )
+    transcript = str(result.get("text", "")).strip()
+    if not transcript:
+        raise HTTPException(status_code=422, detail="AUDIO_TRANSCRIPT_EMPTY")
+    return {"text": transcript, "model": "aqx-whisper-tiny"}
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(
+    request: Request,
+    authorization: str | None = Header(default=None),
+):
+    _require_token(authorization)
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="INVALID_REQUEST_JSON") from exc
+
+    messages = body.get("messages", []) if isinstance(body, dict) else []
+    user_message = next(
+        (message for message in reversed(messages) if message.get("role") == "user"),
+        None,
+    )
+    if not user_message:
+        raise HTTPException(status_code=400, detail="USER_MESSAGE_REQUIRED")
+    raw_content = user_message.get("content", "")
+    text_parts: list[str] = []
+    image_urls: list[str] = []
+    if isinstance(raw_content, str):
+        text_parts.append(raw_content)
+    elif isinstance(raw_content, list):
+        for part in raw_content:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") == "text" and isinstance(part.get("text"), str):
+                text_parts.append(part["text"])
+            elif part.get("type") == "image_url":
+                image_url = part.get("image_url", {}).get("url")
+                if isinstance(image_url, str):
+                    image_urls.append(image_url)
+    else:
+        raise HTTPException(status_code=400, detail="UNSUPPORTED_MESSAGE_CONTENT")
+
+    review_payload: dict[str, Any] = {}
+    combined_text = "\\n".join(text_parts).strip()
+    if combined_text:
+        try:
+            decoded = json.loads(combined_text)
+            if isinstance(decoded, dict):
+                review_payload = decoded
+                combined_text = str(decoded.get("review", combined_text)).strip()
+        except json.JSONDecodeError:
+            pass
+
+    extracted_ocr: list[str] = []
+    image_scores: list[dict[str, Any]] = []
+    for image_url in image_urls:
+        pil_image = _review_image_from_signed_url(image_url)
+        ocr_text = pytesseract.image_to_string(pil_image, lang="eng+ara")[:8000]
+        if ocr_text.strip():
+            extracted_ocr.append(ocr_text.strip())
+        image_scores.extend(_image_pipeline()(pil_image)[:5])
+
+    if extracted_ocr:
+        combined_text = (
+            combined_text + "\\n[Text extracted from attached images]\\n"
+            + "\\n".join(extracted_ocr)
+        ).strip()
+
+    text_result = _classify_text(combined_text) if combined_text else {
+        "decision": "human_review",
+        "confidence": 0.0,
+        "categories": ["no_text_for_semantic_review"],
+        "rationale": "No readable text was available for semantic moderation.",
+    }
+    text_result = _apply_safety_gate(text_result)
+
+    nsfw_score = max(
+        (
+            float(row.get("score", 0))
+            for row in image_scores
+            if any(
+                marker in str(row.get("label", "")).lower()
+                for marker in ("nsfw", "porn", "unsafe")
+            )
+        ),
+        default=0.0,
+    )
+    if image_urls and nsfw_score >= 0.90:
+        decision = "reject"
+        categories = list(text_result["categories"]) + ["explicit_sexual_image"]
+        reason = "The local image-safety model detected a high-confidence explicit-content signal."
+    elif image_urls:
+        decision = "human_review"
+        categories = list(text_result["categories"]) + ["image_semantics_require_human_review"]
+        reason = "Image OCR and explicit-content screening completed; full visual context requires human review."
+    else:
+        decision = text_result["decision"]
+        categories = list(text_result["categories"])
+        reason = text_result["rationale"]
+
+    # Keep the OpenAI-compatible envelope expected by the existing AQX Favorites
+    # Edge Function, while all inference stays inside the AQX local runtime.
+    result = {
+        "decision": "publish" if decision == "publish" else (
+            "reject" if decision == "reject" else "review"
+        ),
+        "reason": str(reason)[:500],
+        "labels": list(dict.fromkeys(categories))[:12],
+    }
+    return {
+        "id": "aqx-local-moderation",
+        "object": "chat.completion",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)},
+            "finish_reason": "stop",
+        }],
+    }

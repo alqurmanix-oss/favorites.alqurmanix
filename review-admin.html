@@ -13,7 +13,7 @@ button{cursor:pointer;background:#6848b5;color:white;border:0;font-weight:700;ma
 </style></head>
 <body><main class="wrap">
 <h1>🛡️ لوحة مراجعة AQX Favorites</h1>
-<p class="muted">لوحة محمية لمراجعة الحالات المصعّدة. الذكاء الاصطناعي يظل صاحب القرار التلقائي؛ قرارات هذه اللوحة تدخل بشري استثنائي وتُسجّل في سجل التدقيق.</p>
+<p class="muted">لوحة محمية لمراجعة الحالات المصعّدة. الذكاء الاصطناعي يظل صاحب القرار التلقائي؛ قرارات هذه اللوحة تدخل بشري استثنائي وتُسجّل في سجل التدقيق.</p><section class="card"><strong>إعداد الخادم المطلوب مرة واحدة</strong><p class="muted">أضف الأسرار التالية في Supabase → Edge Functions → Secrets: <code>AQX_REVIEW_ADMIN_TOKEN</code> (رمز عشوائي طويل)، <code>AQX_REVIEW_TELEGRAM_BOT_TOKEN</code>، <code>AQX_REVIEW_TELEGRAM_CHAT_ID</code>، <code>AQX_AUDIO_MODEL</code> (موديل تحويل الصوت إلى نص)، ويفضل <code>AQX_VISION_MODEL</code> (موديل يدعم تحليل الصور). يلزم أيضًا إعداد الذكاء الاصطناعي الحالي: AQX_AI_API_KEY وAQX_AI_BASE_URL وAQX_AI_MODEL. لا تضع هذه الأسرار في ملفات الموقع.</p></section>
 <section class="card">
 <label for="token"><strong>رمز إدارة المراجعات</strong></label><br>
 <input id="token" type="password" autocomplete="off" placeholder="أدخل AQX_REVIEW_ADMIN_TOKEN">

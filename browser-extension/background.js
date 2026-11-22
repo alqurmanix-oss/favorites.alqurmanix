@@ -80,15 +80,14 @@ async function savePage(input) {
   }
 }
 chrome.runtime.onInstalled.addListener(async () => {
-  chrome.contextMenus.create({ id: "aqx-save-page", title: "احفظ الصفحة في AQX Favorites", contexts: ["page", "link"] });
+  chrome.contextMenus.removeAll(() => chrome.contextMenus.create({ id: "aqx-save-page", title: "احفظ الصفحة في AQX Favorites", contexts: ["page", "link"] }));
   chrome.alarms.create("aqx-sync", { periodInMinutes: 5 });
 });
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "aqx-save-page") return;
   const url = info.linkUrl || info.pageUrl || tab?.url;
   const title = info.linkUrl ? info.linkUrl : (tab?.title || url);
-  const result = await savePage({ url, title });
-  chrome.notifications?.create?.({ type: "basic", iconUrl: "icon.png", title: "AQX Favorites", message: result.message });
+  await savePage({ url, title });
 });
 chrome.commands.onCommand.addListener(async command => {
   if (command !== "save-current-page") return;
@@ -96,6 +95,7 @@ chrome.commands.onCommand.addListener(async command => {
   if (tab?.url) await savePage({ url: tab.url, title: tab.title });
 });
 chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === "aqx-sync") flushQueue(); });
+chrome.runtime.onStartup.addListener(() => flushQueue());
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     try {

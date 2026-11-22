@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مراجعة تقييمات AQX Favorites</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#28213d;background:#f7f5fc}
+body{margin:0;padding:22px}.wrap{max-width:1050px;margin:auto}.card{background:#fff;border:1px solid #e8e2f2;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 5px 20px #28104b0a}
+h1{font-size:23px;color:#5b3aa5}.muted{color:#756d86;font-size:13px;line-height:1.8}
+input,button{font:inherit;border-radius:10px;padding:10px;border:1px solid #d9d1e8}input{width:min(100%,520px);box-sizing:border-box}
+button{cursor:pointer;background:#6848b5;color:white;border:0;font-weight:700;margin:4px}button.secondary{background:#eee9f7;color:#51368f}button.danger{background:#a52c43}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.status{font-size:13px;color:#5e5473}.stars{color:#d58b00;font-size:21px}.media{max-width:100%;max-height:360px;border-radius:12px;margin:8px 0}.item{border-top:1px solid #eee;padding-top:12px;margin-top:12px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit}
+</style></head>
+<body><main class="wrap">
+<h1>🛡️ لوحة مراجعة AQX Favorites</h1>
+<p class="muted">لوحة محمية لمراجعة الحالات المصعّدة. الذكاء الاصطناعي يظل صاحب القرار التلقائي؛ قرارات هذه اللوحة تدخل بشري استثنائي وتُسجّل في سجل التدقيق.</p>
+<section class="card">
+<label for="token"><strong>رمز إدارة المراجعات</strong></label><br>
+<input id="token" type="password" autocomplete="off" placeholder="أدخل AQX_REVIEW_ADMIN_TOKEN">
+<div class="row"><button id="save">دخول</button><button id="refresh" class="secondary">تحديث الحالات</button><button id="logout" class="secondary">خروج</button></div>
+<div id="status" class="status" role="status">يلزم إعداد رمز الإدارة على الخادم قبل الدخول.</div>
+</section>
+<section id="reviews"></section>
+</main>
+<script>
+(()=> {
+const API='https://fkiokwwztbyztleeuwks.supabase.co/functions/v1/aqx-favorites';
+const $=id=>document.getElementById(id);
+let token=sessionStorage.getItem('aqx_review_admin_token')||'';
+$('token').value=token;
+const status=t=>$('status').textContent=t;
+const node=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+async function request(path,options={}){const res=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-review-admin':token,...(options.headers||{})}});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||'HTTP '+res.status);return data}
+async function load(){if(!token){status('أدخل رمز الإدارة أولاً.');return}status('جارٍ تحميل الحالات...');try{const data=await request('/admin/reviews');const root=$('reviews');root.replaceChildren();if(!data.reviews?.length){root.append(node('div','card','لا توجد حالات معلّقة أو مخفية حاليًا.'));status('تم التحديث.');return}
+for(const r of data.reviews){const card=node('article','card');card.append(node('h3','', 'تقييم '+r.id));card.append(node('div','stars','★'.repeat(Number(r.rating)||0)+'☆'.repeat(5-(Number(r.rating)||0))));card.append(node('pre','',r.comment||'لا يوجد نص مكتوب'));card.append(node('p','muted','الحالة: '+r.status+' — '+(r.moderation_reason||'')));
+const attachments=(data.media||[]).filter(m=>m.review_id===r.id);
+for(const m of attachments){const box=node('div','item');box.append(node('strong','',m.media_type==='image'?'صورة مرفقة':'تسجيل صوتي'));box.append(node('p','muted',m.mime_type+' — '+Math.ceil(m.size_bytes/1024)+' KB — '+m.moderation_status));
+if(m.preview_url&&m.media_type==='image'){const im=node('img','media');im.src=m.preview_url;im.alt='صورة مرفقة';box.append(im)}
+if(m.preview_url&&m.media_type==='audio'){const au=node('audio','media');au.controls=true;au.src=m.preview_url;box.append(au)}
+if(m.transcript)box.append(node('pre','', 'النص المستخرج: '+m.transcript));
+card.append(box)}
+const escalation=(data.escalations||[]).find(x=>x.review_id===r.id&&x.status==='open');if(escalation)card.append(node('p','muted','تصعيد '+escalation.priority+': '+escalation.reason));
+const actions=node('div','row');const approve=node('button','','موافقة بشرية ونشر');approve.onclick=()=>decide(r.id,'publish');const reject=node('button','danger','رفض نهائي');reject.onclick=()=>decide(r.id,'reject');actions.append(approve,reject);card.append(actions);root.append(card)}
+status('تم تحميل '+data.reviews.length+' حالة.');}catch(e){status('تعذر التحميل: '+e.message)}}
+async function decide(id,decision){const reason=prompt('سبب القرار البشري (سيُحفظ في سجل التدقيق):','مراجعة بشرية');if(reason===null)return;try{await request('/admin/reviews/'+id+'/decision',{method:'POST',body:JSON.stringify({decision,reason})});status('تم حفظ القرار.');await load()}catch(e){status('تعذر حفظ القرار: '+e.message)}}
+$('save').onclick=()=>{token=$('token').value.trim();sessionStorage.setItem('aqx_review_admin_token',token);load()};
+$('refresh').onclick=load;
+$('logout').onclick=()=>{token='';sessionStorage.removeItem('aqx_review_admin_token');$('token').value='';$('reviews').replaceChildren();status('تم تسجيل الخروج.')};
+if(token)load();
+})();
+</script></body></html>

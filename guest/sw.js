@@ -1,4 +1,4 @@
-const CACHE = "aqx-favorites-shell-v1";
+const CACHE = "aqx-favorites-shell-v2";
 const SHELL = ["/guest/", "/guest/index.html", "/guest/manifest.webmanifest", "/guest/icons/aqx-favorites.svg"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -500,7 +500,7 @@ async def audio_transcriptions(
     audio_bytes = await _read_upload(file)
     if audio_bytes is None:
         raise HTTPException(status_code=400, detail="AUDIO_REQUIRED")
-    samples, sample_rate = _decode_audio(audio_bytes)
+    samples, sample_rate = await run_in_threadpool(_decode_audio, audio_bytes)
     transcript = await run_in_threadpool(_transcribe_samples, samples, sample_rate)
     if not transcript:
         raise HTTPException(status_code=422, detail="AUDIO_TRANSCRIPT_EMPTY")

@@ -289,3 +289,92 @@ def test_audio_is_resampled_to_whisper_rate(monkeypatch):
     assert observed["sample_count"] == 1600
     assert response.json()["decision"] == "human_review"
 
+def test_browser_audio_container_uses_bounded_local_ffmpeg_decode(monkeypatch):
+    import io
+    import json
+    from types import SimpleNamespace
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main.sf.info", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("unsupported container")))
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command[0])
+        if command[0] == "ffprobe":
+            return SimpleNamespace(
+                stdout=json.dumps({
+                    "format": {"duration": "0.1"},
+                    "streams": [{
+                        "codec_type": "audio",
+                        "sample_rate": "48000",
+                        "channels": 2,
+                        "duration": "0.1",
+                    }],
+                }).encode(),
+                stderr=b"",
+            )
+        return SimpleNamespace(stdout=b"\\x00" * (1600 * 4), stderr=b"")
+
+    monkeypatch.setattr("app.main.subprocess.run", fake_run)
+    observed = {}
+
+    def transcribe(payload, **_kwargs):
+        observed["sampling_rate"] = payload["sampling_rate"]
+        observed["sample_count"] = len(payload["raw"])
+        return {"text": "browser recording"}
+
+    monkeypatch.setattr("app.main._asr_pipeline", lambda: transcribe)
+    monkeypatch.setattr(
+        "app.main._classify_text",
+        lambda _text: {
+            "decision": "publish",
+            "confidence": 0.999,
+            "categories": [],
+            "rationale": "safe",
+        },
+    )
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"audio": ("recording.webm", b"webm-placeholder", "audio/webm")},
+    )
+    assert response.status_code == 200
+    assert calls == ["ffprobe", "ffmpeg"]
+    assert observed == {"sampling_rate": 16000, "sample_count": 1600}
+    assert response.json()["decision"] == "human_review"
+
+
+def test_oversized_browser_audio_is_rejected_before_ffmpeg_decode(monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    token = "aqx-test-secret-" + "x" * 40
+    monkeypatch.setenv("AQX_AI_INTERNAL_TOKEN", token)
+    monkeypatch.setattr("app.main.sf.info", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("unsupported container")))
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command[0])
+        return SimpleNamespace(
+            stdout=json.dumps({
+                "format": {"duration": "901"},
+                "streams": [{
+                    "codec_type": "audio",
+                    "sample_rate": "48000",
+                    "channels": 2,
+                    "duration": "901",
+                }],
+            }).encode(),
+            stderr=b"",
+        )
+
+    monkeypatch.setattr("app.main.subprocess.run", fake_run)
+    response = client.post(
+        "/v1/analyze",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"audio": ("long.webm", b"webm-placeholder", "audio/webm")},
+    )
+    assert response.status_code == 413
+    assert calls == ["ffprobe"]
+

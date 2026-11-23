@@ -106,6 +106,16 @@ html:not([lang="ar"]) #sidebar{direction:ltr!important;}
 
 .brand-logo{display:block;width:112px;height:44px;max-width:34vw;object-fit:contain;object-position:center;flex:none}
 @media(max-width:760px){.brand-logo{width:92px;height:38px;max-width:30vw}}
+
+.support-nav{width:100%;display:flex;align-items:center;gap:12px;padding:12px 13px;border:0;background:transparent;border-radius:12px;color:#68647a;margin:3px 0;transition:.2s;text-align:right;font:inherit;cursor:pointer}
+.support-nav:hover,.support-nav[aria-expanded="true"]{background:#f8f6fd;color:var(--primary)}
+.support-nav .ico{font-size:17px;width:20px;text-align:center}
+.support-notifications-panel{margin:8px 0 14px;padding:13px;border:1px solid var(--line);border-radius:13px;background:#fbfaff}
+.support-notifications-panel>strong{display:block;font-size:13px;margin-bottom:8px}
+.support-notifications-list{max-height:260px;overflow:auto}
+.support-notification-item{padding:10px 0;border-top:1px solid #eee9f5;font-size:12px;line-height:1.8}
+.support-notification-item p{margin:4px 0;white-space:pre-wrap}
+.support-notification-panel a{display:inline-block;color:var(--primary);font-weight:700;font-size:12px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -120,6 +130,8 @@ html:not([lang="ar"]) #sidebar{direction:ltr!important;}
  <div class="sidebar-close-row"><button type="button" class="sidebar-close" id="closeSidebar" aria-label="Close menu">×</button></div>
  <div class="side-label">مساحة العمل</div>
  <a class="nav active" href="#" data-view="home"><span class="ico">⌂</span>نظرة عامة</a>
+ <button type="button" class="support-nav" id="support-notifications-nav" aria-expanded="false"><span class="ico">🔔</span><span id="support-notifications-label">إشعارات الدعم</span><span class="count" id="support-notifications-count" hidden>0</span></button>
+ <div id="support-notifications-panel" class="support-notifications-panel" hidden><strong>إشعارات الدعم</strong><div id="support-notifications-list" class="support-notifications-list">جارٍ تحميل الإشعارات...</div><a href="https://support.favorites.alqurmanix.com/report.html#track-section" target="_blank" rel="noopener noreferrer">متابعة بلاغ برمز المتابعة</a></div>
  <a class="nav" href="#" data-view="favorites"><span class="ico">♡</span>كل المفضلة <span class="count" id="navCount">0</span></a>
  <a class="nav" href="#" data-view="collections"><span class="ico">▦</span>مجموعاتي <span class="count" id="collectionCount">0</span></a>
  <a class="nav" href="#" data-view="reading"><span class="ico">▤</span>قائمة القراءة</a>
@@ -445,6 +457,67 @@ welcomeType=localStorage.getItem('aqx_favorites_guest_visited_v1')==='1'?'again'
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/guest/sw.js').catch(()=>{});
 bootCloud();
 consumeShareTarget();
+})();
+
+const SUPPORT_API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-support';
+const SUPPORT_TRACKED_KEY='aqx_favorites_support_tickets_v1';
+let supportNotificationData=[];
+function readTrackedSupport(){try{const x=JSON.parse(localStorage.getItem(SUPPORT_TRACKED_KEY)||'[]');return Array.isArray(x)?x:[]}catch{return[]}}
+function writeTrackedSupport(x){localStorage.setItem(SUPPORT_TRACKED_KEY,JSON.stringify(x.slice(-20)))}
+(function captureSupportTicket(){
+ const params=new URLSearchParams(location.search);
+ const ticket=params.get('support_ticket'),tracking=params.get('tracking_token');
+ if(ticket&&tracking&&tracking.length>=24){
+  const items=readTrackedSupport().filter(x=>x.ticket_number!==ticket);
+  items.push({ticket_number:ticket,tracking_token:tracking,read_count:0,added_at:new Date().toISOString()});
+  writeTrackedSupport(items);
+  params.delete('support_ticket');params.delete('tracking_token');
+  const cleanUrl=location.pathname+(params.toString()?'?'+params.toString():'')+location.hash;
+  history.replaceState(null,'',cleanUrl);
+ }
+})();
+async function refreshSupportNotifications(markRead=false){
+ const tracked=readTrackedSupport(),results=[];
+ for(const item of tracked.slice(-10)){
+  try{
+   const response=await fetch(SUPPORT_API+'/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticket_number:item.ticket_number,tracking_token:item.tracking_token}),cache:'no-store'});
+   const data=await response.json().catch(()=>({}));
+   if(response.ok&&data.ok===true)results.push({item,ticket:data.ticket,replies:data.replies||[]});
+  }catch{}
+ }
+ supportNotificationData=results;
+ const unread=results.reduce((sum,x)=>sum+Math.max(0,x.replies.length-(Number(x.item.read_count)||0)),0);
+ const badge=document.getElementById('support-notifications-count');
+ if(badge){badge.textContent=String(unread);badge.hidden=unread===0}
+ const list=document.getElementById('support-notifications-list');
+ if(list&&document.getElementById('support-notifications-panel')?.hidden===false){
+  list.replaceChildren();
+  if(!results.length){const p=document.createElement('p');p.className='muted';p.textContent='لا توجد بلاغات محفوظة للمتابعة على هذا الجهاز.';list.appendChild(p)}
+  results.forEach(x=>{
+   const box=document.createElement('div');box.className='support-notification-item';
+   const title=document.createElement('strong');title.textContent=x.ticket.ticket_number+' — '+(x.replies.length?'ردود جديدة':'تم استلام البلاغ');
+   box.appendChild(title);
+   x.replies.forEach(reply=>{const p=document.createElement('p');p.textContent=(reply.author_label||'فريق AQX')+': '+reply.body;box.appendChild(p)});
+   list.appendChild(box);
+  });
+ }
+ if(markRead){
+  const latest=readTrackedSupport();
+  latest.forEach(item=>{const found=results.find(x=>x.item.ticket_number===item.ticket_number);if(found)item.read_count=found.replies.length});
+  writeTrackedSupport(latest);
+  if(badge){badge.textContent='0';badge.hidden=true}
+ }
+}
+(function wireSupportNotifications(){
+ const button=document.getElementById('support-notifications-nav');
+ const panel=document.getElementById('support-notifications-panel');
+ if(!button||!panel)return;
+ button.addEventListener('click',async()=>{
+  const open=panel.hidden;panel.hidden=!open;button.setAttribute('aria-expanded',String(open));
+  if(open)await refreshSupportNotifications(true);
+ });
+ refreshSupportNotifications(false);
+ setInterval(()=>refreshSupportNotifications(false),60000);
 })();
 </script>
 </body>

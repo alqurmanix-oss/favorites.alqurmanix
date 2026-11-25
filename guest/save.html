@@ -50,7 +50,7 @@ async function run(){
  url.hash='';
  title=(q.get('title')||url.hostname).trim().slice(0,180)||url.hostname;
  let token=localStorage.getItem(TOKEN_KEY)||'';
- if(token.length<40||token.length>64){
+ if(token.length<8||token.length>256){
   const created=await api('/guest/session','',{method:'POST',body:'{}'});
   token=String(created.guest_token||'');
   if(token.length<40||token.length>64)throw new Error('تعذر إنشاء مكتبة Guest.');

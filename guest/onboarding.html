@@ -95,7 +95,7 @@ const SESSION_ONLY_KEY='aqx_favorites_device_session_only_v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
 let returnTo=params.get('return')||'/guest/index.html';
-let pendingDeviceToken='';
+let pendingDeviceToken='',pendingRecoveryKey='';
 try{const u=new URL(returnTo,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/guest/'))returnTo='/guest/index.html';else returnTo=u.pathname+u.search+u.hash}catch{returnTo='/guest/index.html'}
 const setStatus=(s)=>{$('status').textContent=s||''};
 function randomToken(bytes){const a=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...a)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
@@ -120,8 +120,8 @@ async function registerTrustedDevice(token){
  sessionStorage.removeItem(SESSION_ONLY_KEY);
  return result;
 }
-function showTrustPrompt(token){
- pendingDeviceToken=token;
+function showTrustPrompt(token,recoveryKey){
+ pendingDeviceToken=token;pendingRecoveryKey=recoveryKey||token;
  $('choice').hidden=true;$('created').style.display='none';$('trustDevice').hidden=false;
  $('deviceLabel').textContent=currentDeviceLabel();
  setStatus('مفتاحك صحيح. اختر اعتماد هذا الجهاز أو الدخول المؤقت.');
@@ -151,7 +151,7 @@ async function openExisting(){
  $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح…');
  try{
   await request('/items?limit=1',key);
-  showTrustPrompt(key);
+  showTrustPrompt(key,key);
  }catch(e){setStatus('تعذر فتح المكتبة: '+(e.message||'المفتاح غير صحيح.'));$('openLibrary').disabled=false}
 }
 async function upgradeExisting(){
@@ -161,7 +161,7 @@ async function upgradeExisting(){
   const check=await request('/items?limit=1',token);
   if(localStorage.getItem(RECOVERY_SET_KEY)==='1'&&localStorage.getItem(SYNC_CODE_KEY)){
    if(localStorage.getItem(DEVICE_TRUSTED_KEY)==='1'||sessionStorage.getItem(SESSION_ONLY_KEY)==='1'){finish();return true}
-   showTrustPrompt(token);return true;
+   showTrustPrompt(token,localStorage.getItem(SYNC_CODE_KEY)||token);return true;
   }
   await activateForGuest(token,check.guest_id||'');
   return true;
@@ -171,7 +171,7 @@ $('trustNow').addEventListener('click',async()=>{
  $('trustNow').disabled=true;setStatus('جارٍ اعتماد هذا الجهاز…');
  try{
   await registerTrustedDevice(pendingDeviceToken);
-  localStorage.setItem(SYNC_CODE_KEY,pendingDeviceToken);
+  localStorage.setItem(SYNC_CODE_KEY,pendingRecoveryKey);
   localStorage.setItem(RECOVERY_SET_KEY,'1');
   finish();
  }catch(e){setStatus(e.message||'تعذر اعتماد الجهاز.');$('trustNow').disabled=false}
@@ -179,7 +179,7 @@ $('trustNow').addEventListener('click',async()=>{
 $('notNow').addEventListener('click',()=>{
  if(!pendingDeviceToken)return;
  localStorage.setItem(TOKEN_KEY,pendingDeviceToken);
- localStorage.setItem(SYNC_CODE_KEY,pendingDeviceToken);
+ localStorage.setItem(SYNC_CODE_KEY,pendingRecoveryKey);
  localStorage.setItem(RECOVERY_SET_KEY,'1');
  localStorage.removeItem(DEVICE_TRUSTED_KEY);
  sessionStorage.setItem(SESSION_ONLY_KEY,'1');

@@ -1428,6 +1428,44 @@ Deno.serve(async (req: Request) => {
       await event(current, "guest_recovery_key_set");
       return out(req, { ok: true, recovery_key_saved: true, storage: "hmac_sha256" });
     }
+    if (req.method === "POST" && path.endsWith("/guest/library-sync")) {
+      const source = await guest(req);
+      const body = await req.json().catch(() => ({}));
+      const targetKey = typeof body.target_recovery_key === "string" ? body.target_recovery_key.trim() : "";
+      if (targetKey.length < 8 || targetKey.length > 32 || !/^[A-Za-z0-9_-]+$/.test(targetKey)) {
+        throw new ApiError("LIBRARY_SYNC_KEY_INVALID", 400);
+      }
+      const targetHash = await hmacHash(targetKey);
+      const { data: target, error: targetError } = await db.from("aqx_favorites_guest_sessions")
+        .select("guest_id,status,expires_at")
+        .eq("recovery_key_hash_hex", targetHash).maybeSingle();
+      if (targetError) throw targetError;
+      if (!target || target.status !== "active" || new Date(target.expires_at).getTime() <= Date.now()) {
+        throw new ApiError("LIBRARY_SYNC_TARGET_NOT_FOUND", 404);
+      }
+      if (target.guest_id === source.owner_id) {
+        throw new ApiError("LIBRARY_SYNC_SAME_LIBRARY", 409);
+      }
+      const { data: merged, error: mergeError } = await db.rpc("aqx_favorites_merge_guest_to_guest", {
+        p_source_guest_id: source.owner_id,
+        p_target_guest_id: target.guest_id,
+        p_target_recovery_hash: targetHash
+      });
+      if (mergeError) {
+        const message = String(mergeError.message || "");
+        if (message.includes("library_sync_target_invalid")) throw new ApiError("LIBRARY_SYNC_TARGET_NOT_FOUND", 404);
+        if (message.includes("library_sync_source_invalid")) throw new ApiError("LIBRARY_SYNC_SOURCE_INVALID", 409);
+        if (message.includes("library_sync")) throw new ApiError("LIBRARY_SYNC_FAILED:" + message, 409);
+        throw mergeError;
+      }
+      await event({owner_type:"guest",owner_id:target.guest_id},"guest_library_sync_completed",null,{
+        source_guest_id:source.owner_id, merged_rows:merged?.merged_rows || 0
+      });
+      return out(req, {
+        ok:true, merged:true, guest_id:target.guest_id,
+        guest_token:targetKey, summary:merged
+      });
+    }
     if (req.method === "POST" && path.endsWith("/guest/device/trust")) {
       const current = await guest(req);
       const body = await req.json().catch(() => ({}));

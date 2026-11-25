@@ -148,7 +148,7 @@ async function createLibrary(){
  }catch(e){setStatus(e.message||'تعذر إنشاء المكتبة.');$('newLibrary').disabled=false}
 }
 async function openExisting(){
- const key=$('recoveryKey').value.trim();
+ const key=$('recoveryKey').value.trim().replace(/^AQXKEY:/i,'').trim();
  if(!/^[A-Za-z0-9_-]{8,32}$/.test(key)){setStatus('أدخل مفتاح المكتبة الصحيح (من 8 إلى 32 حرفًا).');return}
  $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح…');
  try{
@@ -195,7 +195,7 @@ $('copyKey').addEventListener('click',async()=>{const key=$('keyValue').textCont
 $('downloadKey').addEventListener('click',()=>{downloadKey($('keyValue').textContent);setStatus('تم تنزيل نسخة المفتاح.')});
 $('continue').addEventListener('click',finish);
 const fromQr=params.get('key');
-if(fromQr){$('recoveryKey').value=fromQr;history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
+if(fromQr){$('recoveryKey').value=String(fromQr).replace(/^AQXKEY:/i,'');history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
 const saved=localStorage.getItem(SYNC_CODE_KEY)||'';
 if(saved)$('recoveryKey').value=saved;
 (async()=>{const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();

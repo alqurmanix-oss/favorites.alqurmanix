@@ -166,14 +166,31 @@ async function guest(req: Request) {
 async function mergeGuestForAccount(req: Request, accountOwner: any) {
   const rawGuestToken = req.headers.get("x-aqx-guest-token") || "";
   if (!rawGuestToken) return null;
-  if (rawGuestToken.length < 12 || rawGuestToken.length > 256) throw new ApiError("GUEST_SESSION_REQUIRED", 401);
+  if (rawGuestToken.length < 8 || rawGuestToken.length > 256) throw new ApiError("GUEST_SESSION_REQUIRED", 401);
   const tokenHash = await hash(rawGuestToken);
-  const { data: guestSession, error: guestSessionError } = await db
-    .from("aqx_favorites_guest_sessions")
+  let { data: guestSession, error: guestSessionError } = await db.from("aqx_favorites_guest_sessions")
     .select("guest_id,status,expires_at,merged_into_account_id")
-    .eq("token_hash_hex", tokenHash)
-    .maybeSingle();
+    .eq("token_hash_hex", tokenHash).maybeSingle();
   if (guestSessionError) throw guestSessionError;
+  if (!guestSession) {
+    const recoveryLookup = await db.from("aqx_favorites_guest_sessions")
+      .select("guest_id,status,expires_at,merged_into_account_id")
+      .eq("recovery_key_hash_hex", await hmacHash(rawGuestToken)).maybeSingle();
+    if (recoveryLookup.error) throw recoveryLookup.error;
+    guestSession = recoveryLookup.data;
+  }
+  if (!guestSession) {
+    const deviceLookup = await db.from("aqx_favorites_guest_devices")
+      .select("guest_id").eq("device_token_hash_hex", tokenHash).is("revoked_at", null).maybeSingle();
+    if (deviceLookup.error) throw deviceLookup.error;
+    if (deviceLookup.data) {
+      const sessionLookup = await db.from("aqx_favorites_guest_sessions")
+        .select("guest_id,status,expires_at,merged_into_account_id")
+        .eq("guest_id", deviceLookup.data.guest_id).maybeSingle();
+      if (sessionLookup.error) throw sessionLookup.error;
+      guestSession = sessionLookup.data;
+    }
+  }
   if (!guestSession) throw new ApiError("GUEST_SESSION_INVALID", 401);
   if (guestSession.status === "merged") {
     if (guestSession.merged_into_account_id === accountOwner.owner_id) {

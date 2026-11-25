@@ -1456,7 +1456,9 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
       return out(req, {ok:true,devices:data||[]});
     }
-    const revokeDeviceId = path.startsWith("/guest/devices/") ? path.slice("/guest/devices/".length) : "";
+    const revokeDeviceMarker = "/guest/devices/";
+    const revokeDeviceIndex = path.lastIndexOf(revokeDeviceMarker);
+    const revokeDeviceId = revokeDeviceIndex >= 0 ? path.slice(revokeDeviceIndex + revokeDeviceMarker.length) : "";
     if (req.method === "DELETE" && /^[0-9a-f-]{36}$/i.test(revokeDeviceId)) {
       const current = await guest(req);
       const { data, error } = await db.from("aqx_favorites_guest_devices")

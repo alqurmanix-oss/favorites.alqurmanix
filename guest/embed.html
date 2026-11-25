@@ -31,7 +31,7 @@ button{font:inherit;cursor:pointer}
 </head>
 <body>
 <div id="saveWrap" hidden><button id="save" type="button">احفظ الصفحة <span class="heart">♡</span></button><div id="status" role="status"></div></div>
-<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener" style="font-size:11px;color:#6d4bd1;font-weight:800">مكتبتي</a></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener">فتح مكتبتي بالكامل ←</a></div></section></div>
+<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><div id="recentStatus" role="status"></div><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener" style="font-size:11px;color:#6d4bd1;font-weight:800">مكتبتي</a></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener">فتح مكتبتي بالكامل ←</a></div></section></div>
 <script>
 (()=>{
 'use strict';
@@ -134,7 +134,13 @@ if(mode==='save'){
  $('save').addEventListener('click',save);
 }else if(mode==='recent'){
  $('recentWrap').hidden=false;
- $('float').addEventListener('click',async()=>{const opening=!$('panel').classList.contains('open');$('panel').classList.toggle('open',opening);resize(opening);if(opening)await loadRecent()});
+ $('float').addEventListener('click',()=>{
+  const target='https://favorites.alqurmanix.com/guest/recent.html';
+  const popup=window.open(target,'aqxFavoritesRecent','popup=yes,width=430,height=620,resizable=yes,scrollbars=yes');
+  const status=document.getElementById('recentStatus');
+  if(popup){try{popup.opener=null}catch{}if(status)status.textContent='تم فتح آخر محفوظاتك في نافذة AQX.'}
+  else if(status){status.replaceChildren();status.textContent='المتصفح حظر النافذة. ';const link=document.createElement('a');link.href=target;link.target='_blank';link.rel='noopener';link.textContent='افتح آخر محفوظاتك';link.style.color='#6d4bd1';status.appendChild(link)}
+ });
 }else{document.body.textContent='Invalid embed mode'}
 })();
 </script>

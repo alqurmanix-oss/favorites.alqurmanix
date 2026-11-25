@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#6d4bd1">
+<title>تفعيل مكتبة AQX Favorites</title>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#29233c;background:#f7f5fc}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px;display:grid;place-items:center}
+main{width:min(560px,100%);background:#fff;border:1px solid #ebe6f5;border-radius:25px;padding:clamp(22px,5vw,38px);box-shadow:0 24px 70px #30204d12}
+.brand{display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:20px;font-weight:900;font-size:20px}
+.logo{width:45px;height:45px;border-radius:15px;background:linear-gradient(135deg,#6d4bd1,#a08be9);display:grid;place-items:center;color:#fff;font-size:24px}
+h1{text-align:center;font-size:23px;margin:0 0 9px} .sub{text-align:center;color:#777187;font-size:13px;line-height:1.9;margin:0 0 23px}
+.panel{border:1px solid #eee9f6;background:#fcfbff;border-radius:17px;padding:17px;margin:13px 0}
+label{display:block;font-size:12px;font-weight:800;margin-bottom:8px}
+input{width:100%;border:1px solid #e5dfef;border-radius:12px;padding:14px;font:14px Tahoma,Arial,sans-serif;outline:none;direction:ltr;text-align:center;letter-spacing:1px}
+input:focus{border-color:#9b85e4;box-shadow:0 0 0 3px #6d4bd115}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px;font-weight:800}
+.primary{background:linear-gradient(135deg,#6d4bd1,#9278e5);color:#fff;width:100%;box-shadow:0 8px 20px #6d4bd126}
+.secondary{background:#fff;color:#6045bd;border:1px solid #e5def5;width:100%}
+.row{display:flex;gap:9px;margin-top:10px}.row button{flex:1}
+.muted{font-size:11px;line-height:1.9;color:#817b90;text-align:center}
+.warning{background:#fff8e9;border:1px solid #f3dfb5;color:#805817;border-radius:13px;padding:12px;font-size:11px;line-height:1.9;margin:15px 0}
+.success{background:#effaf4;border:1px solid #ccebd8;color:#17633b;border-radius:13px;padding:12px;font-size:12px;line-height:1.9}
+#created{display:none;text-align:center}
+#keyValue{direction:ltr;word-break:break-all;background:#f4f0ff;border:1px dashed #c8b9f1;border-radius:13px;padding:16px;font:700 19px ui-monospace,monospace;letter-spacing:1px;margin:13px 0}
+#qr{display:grid;place-items:center;background:#fff;padding:12px;border:1px solid #eee9f6;border-radius:14px;width:fit-content;margin:12px auto;min-width:150px;min-height:150px}
+#qr img,#qr canvas{max-width:180px!important;height:auto!important}
+#status{min-height:22px;text-align:center;color:#6d4bd1;font-size:12px;line-height:1.8;margin:10px 0}
+.account-note{border-top:1px solid #f0edf5;padding-top:15px;margin-top:19px;color:#777187;font-size:11px;line-height:1.9;text-align:center}
+[hidden]{display:none!important}
+@media(max-width:420px){body{padding:12px}main{border-radius:19px}.row{flex-direction:column}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<main>
+  <div class="brand"><span class="logo">♡</span><span>AQX Favorites</span></div>
+  <section id="choice">
+    <h1>مكتبتك الشخصية معك في كل مكان</h1>
+    <p class="sub">افتح مكتبتك الحالية بمفتاحها، أو أنشئ مكتبة جديدة. لا تحتاج إلى بريد إلكتروني أو كلمة مرور.</p>
+    <div class="panel">
+      <label for="recoveryKey">لديّ مكتبة بالفعل — أدخل مفتاحها</label>
+      <input id="recoveryKey" type="password" autocomplete="off" spellcheck="false" maxlength="32" placeholder="مفتاح المكتبة">
+      <div class="row">
+        <button class="secondary" id="toggleKey" type="button">إظهار المفتاح</button>
+        <button class="primary" id="openLibrary" type="button">فتح مكتبتي</button>
+      </div>
+    </div>
+    <div class="panel">
+      <strong style="display:block;text-align:center;margin-bottom:8px">ليس لديك مفتاح؟</strong>
+      <p class="muted">أنشئ مكتبة جديدة خلال لحظات، وسيُنشأ مفتاحك الخاص تلقائيًا.</p>
+      <button class="primary" id="newLibrary" type="button">إنشاء مكتبة جديدة</button>
+    </div>
+    <div class="warning">⚠️ مفتاح المكتبة هو وسيلة الوصول إليها. إذا فقدته وفقدت جميع وسائل الوصول، فلن تتمكن AQX من استعادة محفوظاتك؛ يمكنك حينها إنشاء مكتبة جديدة.</div>
+    <p class="muted">ننصحك بإنشاء حساب AQX وربط مكتبتك به لحمايتها، مع بقاء استخدام المكتبة دون حساب متاحًا.</p>
+  </section>
+
+  <section id="created">
+    <div class="success">✓ تم إنشاء مفتاح مكتبتك وتفعيلها بنجاح. احتفظ بالمفتاح قبل المتابعة.</div>
+    <h1 style="margin-top:17px">مفتاح مكتبتك</h1>
+    <p class="sub">هذا المفتاح سري. احتفظ به في مكان آمن ولا تشاركه مع أي شخص.</p>
+    <div id="keyValue"></div>
+    <div class="row">
+      <button class="primary" id="copyKey" type="button">نسخ المفتاح وتنزيله</button>
+      <button class="secondary" id="downloadKey" type="button">تنزيل نسخة</button>
+    </div>
+    <h2 style="font-size:15px;margin:22px 0 7px">رمز QR لفتح المكتبة</h2>
+    <div id="qr"></div>
+    <p class="muted">يمكنك مسح الرمز بكاميرا جهاز آخر، ثم نسخ المفتاح الذي يظهر وفتحه من صفحة AQX Favorites.</p>
+    <div id="libraryRef" class="muted"></div>
+    <div class="warning">لا تفقد المفتاح. لا تستطيع AQX استعادته إذا فقدته ولم تعد تملك جهازًا موثوقًا.</div>
+    <button class="primary" id="continue" type="button">متابعة إلى مكتبتي</button>
+  </section>
+  <div id="status" role="status" aria-live="polite"></div>
+  <div class="account-note">حساب AQX اختياري، لكنه وسيلة إضافية لحماية مكتبتك وربطها بهويتك.</div>
+</main>
+<script>
+(()=>{'use strict';
+const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
+const TOKEN_KEY='aqx_favorites_guest_token_v1';
+const SYNC_CODE_KEY='aqx_favorites_sync_code_v1';
+const RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1';
+const RECOVERY_EDIT_KEY='aqx_favorites_recovery_key_edit_v1';
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+let returnTo=params.get('return')||'/guest/index.html';
+try{const u=new URL(returnTo,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/guest/'))returnTo='/guest/index.html';else returnTo=u.pathname+u.search+u.hash}catch{returnTo='/guest/index.html'}
+const setStatus=(s)=>{$('status').textContent=s||''};
+function randomToken(bytes){const a=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...a)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
+function downloadKey(key){const blob=new Blob(['AQX Favorites — مفتاح مكتبتك\n\n'+key+'\n\nاحتفظ بهذا الملف في مكان آمن.'],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='AQX-Favorites-Recovery-Key.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+async function request(path,token,options={}){const r=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||'تعذر الاتصال بمكتبة AQX');return b}
+function finish(){location.replace(returnTo)}
+function showCreated(key,libraryId){$('choice').hidden=true;$('created').style.display='block';$('keyValue').textContent=key;$('libraryRef').textContent=libraryId?'رقم المكتبة: AQX-'+String(libraryId).toUpperCase():'';$('qr').replaceChildren();if(typeof QRCode==='function'){new QRCode($('qr'),{text:'AQXKEY:'+key,width:180,height:180,correctLevel:QRCode.CorrectLevel.M})}else{$('qr').textContent='استخدم المفتاح النصي أعلاه إذا لم يظهر رمز QR.'}setStatus('مفتاحك جاهز. انسخه لتنزيل نسخة تلقائيًا.')}
+async function activateForGuest(currentToken,libraryId){
+ const recoveryKey=randomToken(24),sessionToken=randomToken(32);
+ await request('/guest/recovery-key',currentToken,{method:'POST',body:JSON.stringify({recovery_key:recoveryKey,session_token:sessionToken})});
+ localStorage.setItem(TOKEN_KEY,sessionToken);
+ localStorage.setItem(SYNC_CODE_KEY,recoveryKey);
+ localStorage.setItem(RECOVERY_SET_KEY,'1');
+ localStorage.removeItem(RECOVERY_EDIT_KEY);
+ showCreated(recoveryKey,libraryId);
+}
+async function createLibrary(){
+ $('newLibrary').disabled=true;setStatus('جارٍ إنشاء مكتبتك وتأمين مفتاحها…');
+ try{
+  const created=await request('/guest/session','',{method:'POST',body:'{}'});
+  const token=String(created.guest_token||'');
+  if(token.length<40||token.length>64)throw new Error('لم يصل مفتاح الجلسة من الخادم بشكل صحيح.');
+  await activateForGuest(token,created.guest_id||'');
+ }catch(e){setStatus(e.message||'تعذر إنشاء المكتبة.');$('newLibrary').disabled=false}
+}
+async function openExisting(){
+ const key=$('recoveryKey').value.trim();
+ if(!/^[A-Za-z0-9_-]{32}$/.test(key)){setStatus('أدخل مفتاح المكتبة المكوّن من 32 حرفًا.');return}
+ $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح وفتح مكتبتك…');
+ try{
+  await request('/items?limit=1',key);
+  localStorage.setItem(TOKEN_KEY,key);
+  localStorage.setItem(SYNC_CODE_KEY,key);
+  localStorage.setItem(RECOVERY_SET_KEY,'1');
+  localStorage.removeItem(RECOVERY_EDIT_KEY);
+  finish();
+ }catch(e){setStatus('تعذر فتح المكتبة: '+(e.message||'المفتاح غير صحيح.'));$('openLibrary').disabled=false}
+}
+async function upgradeExisting(){
+ const token=localStorage.getItem(TOKEN_KEY)||'';
+ if(!token)return false;
+ try{
+  const check=await request('/items?limit=1',token);
+  if(localStorage.getItem(RECOVERY_SET_KEY)==='1'&&localStorage.getItem(SYNC_CODE_KEY)){finish();return true}
+  await activateForGuest(token,check.guest_id||'');
+  return true;
+ }catch{return false}
+}
+$('newLibrary').addEventListener('click',createLibrary);
+$('openLibrary').addEventListener('click',openExisting);
+$('toggleKey').addEventListener('click',()=>{$('recoveryKey').type=$('recoveryKey').type==='password'?'text':'password';$('toggleKey').textContent=$('recoveryKey').type==='password'?'إظهار المفتاح':'إخفاء المفتاح'});
+$('copyKey').addEventListener('click',async()=>{const key=$('keyValue').textContent;downloadKey(key);try{await navigator.clipboard.writeText(key);setStatus('تم نسخ المفتاح وتنزيل ملفه بنجاح.')}catch{setStatus('تم تنزيل ملف المفتاح. انسخ النص الظاهر يدويًا إذا لم يعمل النسخ التلقائي.')}});
+$('downloadKey').addEventListener('click',()=>{downloadKey($('keyValue').textContent);setStatus('تم تنزيل نسخة المفتاح.')});
+$('continue').addEventListener('click',finish);
+const fromQr=params.get('key');
+if(fromQr){$('recoveryKey').value=fromQr;history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
+const saved=localStorage.getItem(SYNC_CODE_KEY)||'';
+if(saved)$('recoveryKey').value=saved;
+(async()=>{const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();
+})();
+</script>
+</body>
+</html>

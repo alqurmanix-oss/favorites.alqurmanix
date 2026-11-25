@@ -28,6 +28,8 @@ small{display:block;color:#8b8497;margin-top:12px;font-size:11px}
 try{window.opener=null}catch{}
 const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
 const TOKEN_KEY='aqx_favorites_guest_token_v1';
+const SYNC_CODE_KEY='aqx_favorites_sync_code_v1';
+const RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1';
 const q=new URLSearchParams(location.search);
 const status=document.getElementById('status');
 const spinner=document.getElementById('spinner');
@@ -50,11 +52,10 @@ async function run(){
  url.hash='';
  title=(q.get('title')||url.hostname).trim().slice(0,180)||url.hostname;
  let token=localStorage.getItem(TOKEN_KEY)||'';
- if(token.length<8||token.length>256){
-  const created=await api('/guest/session','',{method:'POST',body:'{}'});
-  token=String(created.guest_token||'');
-  if(token.length<40||token.length>64)throw new Error('تعذر إنشاء مكتبة Guest.');
-  localStorage.setItem(TOKEN_KEY,token);
+ if(token.length<8||token.length>256||localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)){
+  const returnTo=location.pathname+location.search+location.hash;
+  location.replace('/guest/onboarding.html?return='+encodeURIComponent(returnTo));
+  return;
  }
  try{
   await api('/items',token,{method:'POST',body:JSON.stringify({url:url.toString(),title,item_type:'link'})});

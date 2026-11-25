@@ -75,6 +75,20 @@ const hmacHash = async (s: string) => {
   const cryptoKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(pepper), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(s))));
 };
+async function enforceLibrarySyncRateLimit(req: Request, guestId: string) {
+  const forwarded = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const ip = forwarded.split(",")[0].trim().toLowerCase() || "unknown";
+  const salt = Deno.env.get("AQX_FAVORITES_RATE_SALT") || KEY;
+  const ipKey = await hash(salt + "|library-sync-ip|" + ip);
+  const guestKey = await hash(salt + "|library-sync-guest|" + guestId);
+  const [ipLimit, guestLimit] = await Promise.all([
+    db.rpc("aqx_favorites_consume_rate_limit", { p_key_hash_hex: ipKey, p_limit: 10, p_window_seconds: 900 }),
+    db.rpc("aqx_favorites_consume_rate_limit", { p_key_hash_hex: guestKey, p_limit: 5, p_window_seconds: 900 })
+  ]);
+  if (ipLimit.error) throw ipLimit.error;
+  if (guestLimit.error) throw guestLimit.error;
+  if (ipLimit.data !== true || guestLimit.data !== true) throw new ApiError("LIBRARY_SYNC_RATE_LIMITED", 429);
+};
 async function recordGuestAuthFailure(req: Request) {
   const forwarded = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const ip = forwarded.split(",")[0].trim().toLowerCase() || "unknown";
@@ -1430,6 +1444,7 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method === "POST" && path.endsWith("/guest/library-sync")) {
       const source = await guest(req);
+      await enforceLibrarySyncRateLimit(req, source.owner_id);
       const body = await req.json().catch(() => ({}));
       const targetKey = typeof body.target_recovery_key === "string" ? body.target_recovery_key.trim() : "";
       if (targetKey.length < 8 || targetKey.length > 32 || !/^[A-Za-z0-9_-]+$/.test(targetKey)) {

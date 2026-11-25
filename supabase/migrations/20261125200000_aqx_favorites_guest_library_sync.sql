@@ -57,6 +57,48 @@ begin
   select count(*) into v_collections from public.aqx_favorites_collections
   where owner_type='guest' and owner_id=p_source_guest_id;
 
+  -- Merge duplicate active URLs into the destination item; retain the source row as archived history.
+  update public.aqx_favorites_items t
+  set note=case when coalesce(t.note,'')='' then s.note
+                when coalesce(s.note,'')='' then t.note
+                else left(t.note||E'\n\n'||s.note,500) end,
+      tags=(select coalesce(array_agg(distinct tag),'{}'::text[])
+            from unnest(coalesce(t.tags,'{}'::text[])||coalesce(s.tags,'{}'::text[])) tag),
+      metadata=coalesce(t.metadata,'{}'::jsonb)||coalesce(s.metadata,'{}'::jsonb),
+      updated_at=now()
+  from public.aqx_favorites_items s
+  where s.owner_type='guest' and s.owner_id=p_source_guest_id
+    and t.owner_type='guest' and t.owner_id=p_target_guest_id
+    and t.normalized_url=s.normalized_url and t.deleted_at is null and s.deleted_at is null;
+
+  update public.aqx_favorites_items s
+  set deleted_at=now(), updated_at=now()
+  where s.owner_type='guest' and s.owner_id=p_source_guest_id and s.deleted_at is null
+    and exists (
+      select 1 from public.aqx_favorites_items t
+      where t.owner_type='guest' and t.owner_id=p_target_guest_id
+        and t.normalized_url=s.normalized_url and t.deleted_at is null
+    );
+
+  -- Avoid name/slug uniqueness collisions while preserving both collections and categories.
+  update public.aqx_favorites_collections s
+  set name=left(s.name,70)||' [Merged '||substr(s.id::text,1,8)||']'
+  where s.owner_type='guest' and s.owner_id=p_source_guest_id and s.deleted_at is null
+    and exists (
+      select 1 from public.aqx_favorites_collections t
+      where t.owner_type='guest' and t.owner_id=p_target_guest_id
+        and lower(t.name)=lower(s.name) and t.deleted_at is null
+    );
+
+  update public.aqx_favorites_categories s
+  set slug=left(s.slug,80)||'-m-'||substr(s.id::text,1,8)
+  where s.owner_type='guest' and s.owner_id=p_source_guest_id and s.deleted_at is null
+    and exists (
+      select 1 from public.aqx_favorites_categories t
+      where t.owner_type='guest' and t.owner_id=p_target_guest_id
+        and t.slug=s.slug and t.deleted_at is null
+    );
+
   -- Preserve both libraries' saved searches when their names collide.
   update public.aqx_favorites_saved_searches s
   set name=left(s.name,72)||' [Merged '||substr(s.id::text,1,8)||']'
@@ -88,7 +130,7 @@ begin
     );
 
   update public.aqx_favorites_entity_merge_candidates s
-  set idempotency_key=left(s.idempotency_key,460)||':merged:'||substr(s.id::text,1,8)
+  set idempotency_key=left(s.idempotency_key,165)||':merged:'||substr(s.id::text,1,8)
   where s.owner_type='guest' and s.owner_id=p_source_guest_id
     and exists (
       select 1 from public.aqx_favorites_entity_merge_candidates t
@@ -103,6 +145,7 @@ begin
     from information_schema.columns c
     where c.table_schema='public' and c.column_name in ('owner_type','owner_id')
       and c.table_name like 'aqx_favorites%'
+      and c.table_name not in ('aqx_favorites_app_reviews','aqx_favorites_app_review_likes','aqx_favorites_app_review_media')
     group by c.table_name
     having count(*)=2
     order by case c.table_name

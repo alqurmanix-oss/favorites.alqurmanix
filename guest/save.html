@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>حفظ في AQX Favorites</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font:14px Tahoma,Arial,sans-serif;color:#29233c;background:#fff}
+main{max-width:420px;margin:auto;text-align:center}h1{font-size:18px;margin:8px 0 12px}
+#status{font-size:13px;line-height:1.9;color:#6c6579;min-height:48px}
+.spinner{width:25px;height:25px;border:3px solid #e9e2f8;border-top-color:#6d4bd1;border-radius:50%;margin:14px auto;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+button{border:0;border-radius:10px;padding:10px 18px;background:#6d4bd1;color:#fff;font-weight:700;cursor:pointer}
+small{display:block;color:#8b8497;margin-top:12px;font-size:11px}
+</style>
+</head>
+<body>
+<main>
+<div class="spinner" id="spinner"></div>
+<h1>AQX Favorites</h1>
+<div id="status" role="status" aria-live="polite">جارٍ حفظ الصفحة في مكتبتك…</div>
+<div id="actions"></div>
+<small>يمكنك إغلاق هذه النافذة بعد اكتمال العملية.</small>
+</main>
+<script>
+(()=>{'use strict';
+try{window.opener=null}catch{}
+const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
+const TOKEN_KEY='aqx_favorites_guest_token_v1';
+const q=new URLSearchParams(location.search);
+const status=document.getElementById('status');
+const spinner=document.getElementById('spinner');
+const actions=document.getElementById('actions');
+function finish(ok,message){
+ status.textContent=message;spinner.hidden=true;
+ if(ok){setTimeout(()=>window.close(),1100);return}
+ const b=document.createElement('button');b.type='button';b.textContent='إغلاق';b.addEventListener('click',()=>window.close());actions.appendChild(b);
+}
+async function api(path,token,options={}){
+ const response=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});
+ const body=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(body.error||'تعذر الاتصال بمكتبة AQX');
+ return body;
+}
+async function run(){
+ let url,title;
+ try{url=new URL(q.get('url')||'');if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw 0}
+ catch{throw new Error('رابط الصفحة غير صالح.')}
+ url.hash='';
+ title=(q.get('title')||url.hostname).trim().slice(0,180)||url.hostname;
+ let token=localStorage.getItem(TOKEN_KEY)||'';
+ if(token.length<40||token.length>64){
+  const created=await api('/guest/session','',{method:'POST',body:'{}'});
+  token=String(created.guest_token||'');
+  if(token.length<40||token.length>64)throw new Error('تعذر إنشاء مكتبة Guest.');
+  localStorage.setItem(TOKEN_KEY,token);
+ }
+ try{
+  await api('/items',token,{method:'POST',body:JSON.stringify({url:url.toString(),title,item_type:'link'})});
+  finish(true,'تم حفظ الصفحة بنجاح في مكتبتك 💜');
+ }catch(error){
+  if(error.message==='FAVORITE_ALREADY_EXISTS')finish(true,'الصفحة محفوظة بالفعل في مكتبتك 💜');
+  else throw error;
+ }
+}
+run().catch(error=>finish(false,error.message||'تعذر حفظ الصفحة.'));
+})();
+</script>
+</body>
+</html>

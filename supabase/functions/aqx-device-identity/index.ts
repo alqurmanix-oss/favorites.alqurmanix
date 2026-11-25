@@ -17,11 +17,15 @@ const db = createClient(SUPABASE_URL, SECRET, { auth: { persistSession: false, a
 const RP_ID = "alqurmanix.com";
 const RP_NAME = "AQX Favorites";
 const ORIGIN = "https://favorites.alqurmanix.com";
+function allowedOrigin(value:string) {
+  try { const u=new URL(value); return u.protocol==="https:" && !u.port && (u.hostname==="alqurmanix.com" || u.hostname.endsWith(".alqurmanix.com")); }
+  catch { return false; }
+}
 class ApiError extends Error { constructor(message: string, public status = 400) { super(message); } }
 const cors = (req: Request) => {
   const origin = req.headers.get("origin") || ORIGIN;
   return {
-    "Access-Control-Allow-Origin": origin === ORIGIN ? origin : "null",
+    "Access-Control-Allow-Origin": allowedOrigin(origin) ? origin : "null",
     "Access-Control-Allow-Headers": "content-type,x-aqx-guest-token",
     "Access-Control-Allow-Methods": "POST,OPTIONS",
     "Vary": "Origin"
@@ -55,9 +59,9 @@ async function guestId(req: Request) {
     throw new ApiError("GUEST_SESSION_INVALID",401);
   return id as string;
 }
-async function saveChallenge(challenge: string,purpose:"register"|"authenticate",guest_id:string|null) {
+async function saveChallenge(challenge: string,purpose:"register"|"authenticate",guest_id:string|null,origin:string) {
   const {data,error}=await db.from("aqx_favorites_webauthn_challenges").insert({
-    challenge,purpose,guest_id,expires_at:new Date(Date.now()+5*60*1000).toISOString()
+    challenge,origin,purpose,guest_id,expires_at:new Date(Date.now()+5*60*1000).toISOString()
   }).select("id").single();
   if(error) throw error;
   return data.id as string;
@@ -66,10 +70,10 @@ async function consumeChallenge(id:string,purpose:"register"|"authenticate",gues
   let q=db.from("aqx_favorites_webauthn_challenges").update({consumed_at:new Date().toISOString()})
     .eq("id",id).eq("purpose",purpose).is("consumed_at",null).gt("expires_at",new Date().toISOString());
   q=guest_id?q.eq("guest_id",guest_id):q.is("guest_id",null);
-  const {data,error}=await q.select("challenge").maybeSingle();
+  const {data,error}=await q.select("challenge,origin").maybeSingle();
   if(error) throw error;
   if(!data) throw new ApiError("WEBAUTHN_CHALLENGE_EXPIRED_OR_USED",400);
-  return data.challenge as string;
+  return {challenge:data.challenge as string,origin:data.origin as string};
 }
 async function issueDeviceToken(guest_id:string,deviceLabel:string) {
   const {count,error:countError}=await db.from("aqx_favorites_guest_devices").select("id",{count:"exact",head:true}).eq("guest_id",guest_id).is("revoked_at",null);
@@ -86,7 +90,8 @@ async function issueDeviceToken(guest_id:string,deviceLabel:string) {
 Deno.serve(async (req:Request) => {
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors(req)});
   if(req.method!=="POST") return out(req,{ok:false,error:"METHOD_NOT_ALLOWED"},405);
-  if((req.headers.get("origin")||"")!==ORIGIN) return out(req,{ok:false,error:"ORIGIN_NOT_ALLOWED"},403);
+  const requestOrigin=req.headers.get("origin")||"";
+  if(!allowedOrigin(requestOrigin)) return out(req,{ok:false,error:"ORIGIN_NOT_ALLOWED"},403);
   try {
     const path=new URL(req.url).pathname.replace(/\/+$/,"");
     const body=await req.json().catch(()=>({}));
@@ -101,15 +106,16 @@ Deno.serve(async (req:Request) => {
         authenticatorSelection:{authenticatorAttachment:"platform",residentKey:"required",userVerification:"preferred"},
         excludeCredentials:(existing.data||[]).map(x=>({id:x.credential_id}))
       });
-      const challenge_id=await saveChallenge(options.challenge,"register",guest_id);
+      const challenge_id=await saveChallenge(options.challenge,"register",guest_id,requestOrigin);
       return out(req,{ok:true,challenge_id,options});
     }
     if(path.endsWith("/register/verify")) {
       const guest_id=await guestId(req);
       if(typeof body.challenge_id!=="string"||!body.response) throw new ApiError("WEBAUTHN_RESPONSE_REQUIRED");
-      const expectedChallenge=await consumeChallenge(body.challenge_id,"register",guest_id);
+      const expected=await consumeChallenge(body.challenge_id,"register",guest_id);
+      if(expected.origin!==requestOrigin) throw new ApiError("WEBAUTHN_ORIGIN_MISMATCH",403);
       const verification=await verifyRegistrationResponse({
-        response:body.response,expectedChallenge,expectedOrigin:ORIGIN,expectedRPID:RP_ID,requireUserVerification:false
+        response:body.response,expectedChallenge:expected.challenge,expectedOrigin:expected.origin,expectedRPID:RP_ID,requireUserVerification:false
       });
       if(!verification.verified||!verification.registrationInfo) throw new ApiError("WEBAUTHN_REGISTRATION_FAILED",400);
       const info=verification.registrationInfo;
@@ -126,23 +132,29 @@ Deno.serve(async (req:Request) => {
     }
     if(path.endsWith("/authenticate/options")) {
       const options=await generateAuthenticationOptions({rpID:RP_ID,userVerification:"preferred",allowCredentials:[]});
-      const challenge_id=await saveChallenge(options.challenge,"authenticate",null);
+      const challenge_id=await saveChallenge(options.challenge,"authenticate",null,requestOrigin);
       return out(req,{ok:true,challenge_id,options});
     }
     if(path.endsWith("/authenticate/verify")) {
       if(typeof body.challenge_id!=="string"||!body.response?.id) throw new ApiError("WEBAUTHN_RESPONSE_REQUIRED");
-      const expectedChallenge=await consumeChallenge(body.challenge_id,"authenticate");
+      const expected=await consumeChallenge(body.challenge_id,"authenticate");
+      if(expected.origin!==requestOrigin) throw new ApiError("WEBAUTHN_ORIGIN_MISMATCH",403);
       const {data:stored,error}=await db.from("aqx_favorites_guest_webauthn_credentials")
         .select("credential_id,guest_id,public_key_b64,sign_count,transports")
         .eq("credential_id",body.response.id).is("revoked_at",null).maybeSingle();
       if(error) throw error;
       if(!stored) throw new ApiError("WEBAUTHN_CREDENTIAL_NOT_FOUND",404);
       const verification=await verifyAuthenticationResponse({
-        response:body.response,expectedChallenge,expectedOrigin:ORIGIN,expectedRPID:RP_ID,
+        response:body.response,expectedChallenge:expected.challenge,expectedOrigin:expected.origin,expectedRPID:RP_ID,
         credential:{id:stored.credential_id,publicKey:dec(stored.public_key_b64),counter:Number(stored.sign_count),transports:stored.transports||[]},
         requireUserVerification:false
       });
       if(!verification.verified) throw new ApiError("WEBAUTHN_AUTHENTICATION_FAILED",401);
+      const renewed=await db.from("aqx_favorites_guest_sessions")
+        .update({last_activity_at:new Date().toISOString(),expires_at:new Date(Date.now()+180*86400000).toISOString()})
+        .eq("guest_id",stored.guest_id).eq("status","active").select("guest_id").maybeSingle();
+      if(renewed.error) throw renewed.error;
+      if(!renewed.data) throw new ApiError("GUEST_LIBRARY_UNAVAILABLE",410);
       const {error:updateError}=await db.from("aqx_favorites_guest_webauthn_credentials")
         .update({sign_count:verification.authenticationInfo.newCounter,last_used_at:new Date().toISOString()})
         .eq("credential_id",stored.credential_id).eq("sign_count",stored.sign_count).is("revoked_at",null);

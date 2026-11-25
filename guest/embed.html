@@ -41,26 +41,13 @@ async function unlock(){
   if(busy)throw new Error('جارٍ التحقق');
   busy=true;
   try{
-    if(typeof document.requestStorageAccess!=='function')
-      throw new Error('المتصفح لا يتيح مشاركة مكتبة AQX داخل المواقع الخارجية.');
-    // Invoke the permission request immediately in the click task, before any await,
-    // so the browser still recognizes the user's transient activation.
-    let request;
-    try{request=document.requestStorageAccess({localStorage:true})}
-    catch{request=document.requestStorageAccess()}
-    try{await request}
-    catch(err){
-      if(err && (err.name==='TypeError'||err.name==='NotSupportedError')){
-        try{await document.requestStorageAccess()}
-        catch{throw new Error('اسمح للمتصفح بمشاركة تخزين AQX لهذا الموقع، ثم اضغط مرة أخرى.')}
-      }else{
-        throw new Error('اسمح للمتصفح بمشاركة تخزين AQX لهذا الموقع، ثم اضغط مرة أخرى.')
-      }
-    }
+    // Both AQX properties are sibling subdomains under alqurmanix.com.
+    // Read the Favorites origin's own storage directly; do not trigger a
+    // browser permission prompt or create a second Guest session.
     let saved='';
     try{saved=localStorage.getItem(TOKEN_KEY)||''}catch{}
-    if(saved.length<8)throw new Error('لم يتم العثور على جلسة Guest. افتح مكتبة AQX Favorites بهذا المتصفح أولاً ثم أعد المحاولة.');
-    return saved;
+    if(saved.length>=8)return saved;
+    throw new Error('لم نعثر على جلسة Guest محفوظة في هذا المتصفح. افتح مكتبة AQX Favorites بهذا المتصفح مرة واحدة ثم أعد المحاولة.');
   }finally{busy=false}
 }
 async function api(path,token,options={}){

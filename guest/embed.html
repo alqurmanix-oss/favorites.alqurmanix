@@ -36,19 +36,24 @@ const TOKEN_KEY='aqx_favorites_guest_token_v1';
 const p=new URLSearchParams(location.search),mode=p.get('mode');
 const $=id=>document.getElementById(id);
 const resize=(open)=>parent.postMessage({type:'aqx-favorites-embed-resize',open},'*');
-let busy=false;
+let tokenPromise=null;
 async function unlock(){
-  if(busy)throw new Error('جارٍ التحقق');
-  busy=true;
-  try{
-    // Both AQX properties are sibling subdomains under alqurmanix.com.
-    // Read the Favorites origin's own storage directly; do not trigger a
-    // browser permission prompt or create a second Guest session.
+  if(tokenPromise)return tokenPromise;
+  tokenPromise=(async()=>{
     let saved='';
-    try{saved=localStorage.getItem(TOKEN_KEY)||''}catch{}
+    try{saved=localStorage.getItem(TOKEN_KEY)||''}
+    catch{throw new Error('المتصفح منع التخزين المحلي؛ تعذر إنشاء جلسة Guest دائمة.')}
     if(saved.length>=8)return saved;
-    throw new Error('لم نعثر على جلسة Guest محفوظة في هذا المتصفح. افتح مكتبة AQX Favorites بهذا المتصفح مرة واحدة ثم أعد المحاولة.');
-  }finally{busy=false}
+    // Create the first Guest session automatically inside the Favorites-origin
+    // iframe, then persist it under the exact key used by the main Favorites app.
+    const created=await api('/guest/session','',{method:'POST',body:'{}'});
+    const fresh=String(created.guest_token||'');
+    if(fresh.length<8)throw new Error('تعذر إنشاء جلسة Guest');
+    try{localStorage.setItem(TOKEN_KEY,fresh)}
+    catch{throw new Error('تعذر حفظ جلسة Guest في تخزين المتصفح')}
+    return fresh;
+  })();
+  try{return await tokenPromise}finally{tokenPromise=null}
 }
 async function api(path,token,options={}){
  const r=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});

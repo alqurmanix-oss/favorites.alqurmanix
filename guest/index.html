@@ -215,7 +215,7 @@ async function bootCloud(){
  if(cloudBusy)return;
  const token=localStorage.getItem(TOKEN_KEY)||'';
  if(token.length<8||token.length>256){goToGuestOnboarding();return}
- if(localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)||(localStorage.getItem(DEVICE_TRUSTED_KEY)!=='1'&&sessionStorage.getItem(SESSION_ONLY_KEY)!=='1')){goToGuestOnboarding();return}
+ const deviceIdentity=localStorage.getItem('aqx_favorites_device_identity_v1')==='1';if(localStorage.getItem(RECOVERY_SET_KEY)!=='1'||(!localStorage.getItem(SYNC_CODE_KEY)&&!deviceIdentity)||(localStorage.getItem(DEVICE_TRUSTED_KEY)!=='1'&&sessionStorage.getItem(SESSION_ONLY_KEY)!=='1')){goToGuestOnboarding();return}
  cloudBusy=true;
  try{
   const test=await fetch(API+'/items?limit=1',{headers:{'x-aqx-guest-token':token},cache:'no-store'});

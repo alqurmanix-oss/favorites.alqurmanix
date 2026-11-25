@@ -1461,10 +1461,12 @@ Deno.serve(async (req: Request) => {
       if (target.guest_id === source.owner_id) {
         throw new ApiError("LIBRARY_SYNC_SAME_LIBRARY", 409);
       }
+      const newSessionToken = token();
       const { data: merged, error: mergeError } = await db.rpc("aqx_favorites_merge_guest_to_guest", {
         p_source_guest_id: source.owner_id,
         p_target_guest_id: target.guest_id,
-        p_target_recovery_hash: targetHash
+        p_target_recovery_hash: targetHash,
+        p_new_target_token_hash: await hash(newSessionToken)
       });
       if (mergeError) {
         const message = String(mergeError.message || "");
@@ -1475,7 +1477,7 @@ Deno.serve(async (req: Request) => {
       }
       return out(req, {
         ok:true, merged:true, guest_id:target.guest_id,
-        guest_token:targetKey, summary:merged
+        guest_token:newSessionToken, summary:merged
       });
     }
     if (req.method === "POST" && path.endsWith("/guest/device/trust")) {

@@ -43,7 +43,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px
     <p class="sub">افتح مكتبتك الحالية بمفتاحها، أو أنشئ مكتبة جديدة. لا تحتاج إلى بريد إلكتروني أو كلمة مرور.</p>
     <div class="panel">
       <label for="recoveryKey">لديّ مكتبة بالفعل — أدخل مفتاحها</label>
-      <input id="recoveryKey" type="password" autocomplete="off" spellcheck="false" maxlength="32" placeholder="مفتاح المكتبة">
+      <input id="recoveryKey" type="password" autocomplete="off" spellcheck="false" maxlength="32" placeholder="مفتاح المكتبة (8 إلى 32 حرفًا)">
       <div class="row">
         <button class="secondary" id="toggleKey" type="button">إظهار المفتاح</button>
         <button class="primary" id="openLibrary" type="button">فتح مكتبتي</button>
@@ -114,7 +114,7 @@ async function createLibrary(){
 }
 async function openExisting(){
  const key=$('recoveryKey').value.trim();
- if(!/^[A-Za-z0-9_-]{32}$/.test(key)){setStatus('أدخل مفتاح المكتبة المكوّن من 32 حرفًا.');return}
+ if(!/^[A-Za-z0-9_-]{8,32}$/.test(key)){setStatus('أدخل مفتاح المكتبة الصحيح (من 8 إلى 32 حرفًا).');return}
  $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح وفتح مكتبتك…');
  try{
   await request('/items?limit=1',key);

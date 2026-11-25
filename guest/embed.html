@@ -61,12 +61,7 @@ async function unlock(){
     try{saved=storage.getItem(TOKEN_KEY)||''}
     catch{throw new Error('تعذر الوصول إلى مكتبة Guest المشتركة.')}
     if(saved.length>=8)return saved;
-    const created=await api('/guest/session','',{method:'POST',body:'{}'});
-    const fresh=String(created.guest_token||'');
-    if(fresh.length<8)throw new Error('تعذر إنشاء جلسة Guest');
-    try{storage.setItem(TOKEN_KEY,fresh)}
-    catch{throw new Error('تعذر حفظ جلسة Guest المشتركة.')}
-    return fresh;
+    throw new Error('لا توجد مكتبة مفعّلة على هذا المتصفح. افتح مكتبتك أو أنشئ مكتبة من AQX Favorites أولاً.');
   })();
   try{return await tokenPromise}finally{tokenPromise=null}
 }
@@ -119,7 +114,7 @@ async function loadRecent(){
    const sm=document.createElement('small');sm.textContent=x.url;
    a.append(b,sm);box.appendChild(a);
   });
- }catch(e){box.innerHTML='<div class="msg">'+safeText(e.message||'تعذر تحميل المحفوظات')+'</div>'}
+ }catch(e){box.replaceChildren();const msg=document.createElement('div');msg.className='msg';msg.textContent=e.message||'تعذر تحميل المحفوظات';const link=document.createElement('a');link.href='https://favorites.alqurmanix.com/guest/index.html';link.textContent='فتح مكتبتي أو إنشاء مكتبة جديدة';link.style.cssText='display:block;margin:10px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';box.append(msg,link)}
 }
 if(mode==='save'){
  $('saveWrap').hidden=false;

@@ -49,7 +49,9 @@ async function guestId(req: Request) {
     id = device.data?.guest_id || null;
   }
   if (!id) throw new ApiError("GUEST_SESSION_INVALID",401);
-  if (session.data && (session.data.status !== "active" || new Date(session.data.expires_at).getTime() < Date.now()))
+  const active=await db.from("aqx_favorites_guest_sessions").select("status,expires_at").eq("guest_id",id).maybeSingle();
+  if(active.error) throw active.error;
+  if(!active.data||active.data.status!=="active"||new Date(active.data.expires_at).getTime()<Date.now())
     throw new ApiError("GUEST_SESSION_INVALID",401);
   return id as string;
 }
@@ -70,6 +72,9 @@ async function consumeChallenge(id:string,purpose:"register"|"authenticate",gues
   return data.challenge as string;
 }
 async function issueDeviceToken(guest_id:string,deviceLabel:string) {
+  const {count,error:countError}=await db.from("aqx_favorites_guest_devices").select("id",{count:"exact",head:true}).eq("guest_id",guest_id).is("revoked_at",null);
+  if(countError) throw countError;
+  if((count||0)>=20) throw new ApiError("GUEST_DEVICE_LIMIT_REACHED",409);
   const deviceToken=randomToken();
   const {data,error}=await db.from("aqx_favorites_guest_devices").insert({
     guest_id,device_token_hash_hex:await hash(deviceToken),device_label:deviceLabel.slice(0,120)

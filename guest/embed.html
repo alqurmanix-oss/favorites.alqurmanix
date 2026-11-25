@@ -41,19 +41,21 @@ async function unlock(){
   if(busy)throw new Error('جارٍ التحقق');
   busy=true;
   try{
-    let access=true;
-    if(typeof document.hasStorageAccess==='function'){
-      try{access=await document.hasStorageAccess()}catch{access=false}
-    }
-    if(!access){
-      if(typeof document.requestStorageAccess!=='function')
-        throw new Error('المتصفح يمنع الوصول إلى مكتبة AQX من داخل هذا الموقع.');
-      let granted=false;
-      try{await document.requestStorageAccess({localStorage:true});granted=true}catch{}
-      if(!granted){
-        try{await document.requestStorageAccess();granted=true}catch{}
+    if(typeof document.requestStorageAccess!=='function')
+      throw new Error('المتصفح لا يتيح مشاركة مكتبة AQX داخل المواقع الخارجية.');
+    // Invoke the permission request immediately in the click task, before any await,
+    // so the browser still recognizes the user's transient activation.
+    let request;
+    try{request=document.requestStorageAccess({localStorage:true})}
+    catch{request=document.requestStorageAccess()}
+    try{await request}
+    catch(err){
+      if(err && (err.name==='TypeError'||err.name==='NotSupportedError')){
+        try{await document.requestStorageAccess()}
+        catch{throw new Error('اسمح للمتصفح بمشاركة تخزين AQX لهذا الموقع، ثم اضغط مرة أخرى.')}
+      }else{
+        throw new Error('اسمح للمتصفح بمشاركة تخزين AQX لهذا الموقع، ثم اضغط مرة أخرى.')
       }
-      if(!granted)throw new Error('اسمح للمتصفح بمشاركة تخزين AQX لهذا الموقع، ثم اضغط مرة أخرى.');
     }
     let saved='';
     try{saved=localStorage.getItem(TOKEN_KEY)||''}catch{}

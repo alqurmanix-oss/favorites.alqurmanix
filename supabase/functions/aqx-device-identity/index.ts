@@ -14,7 +14,7 @@ const SECRET = (() => {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 })();
 const db = createClient(SUPABASE_URL, SECRET, { auth: { persistSession: false, autoRefreshToken: false } });
-const RP_ID = "favorites.alqurmanix.com";
+const RP_ID = "alqurmanix.com";
 const RP_NAME = "AQX Favorites";
 const ORIGIN = "https://favorites.alqurmanix.com";
 class ApiError extends Error { constructor(message: string, public status = 400) { super(message); } }

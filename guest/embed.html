@@ -80,18 +80,25 @@ function heart(){
  const el=document.createElement('span');el.className='fly';el.textContent='♥';
  const r=$('save').getBoundingClientRect();el.style.left=(r.left+r.width/2)+'px';el.style.top=r.top+'px';$('saveWrap').appendChild(el);setTimeout(()=>el.remove(),900);
 }
-async function save(){
- const b=$('save'),status=$('status');if(b.disabled)return;
- b.disabled=true;status.textContent='';
- try{
-  const token=await unlock();
-  const url=p.get('url')||'';const title=(p.get('title')||new URL(url).hostname).slice(0,180);
-  let result;
-  try{result=await api('/items',token,{method:'POST',body:JSON.stringify({url,title,item_type:'link'})})}
-  catch(e){if(e.message==='FAVORITE_ALREADY_EXISTS'){heart();status.textContent='';return}throw e}
-  heart();
- }catch(e){status.textContent=e.message||'تعذر الحفظ'}
- finally{b.disabled=false}
+function save(){
+ const url=p.get('url')||'';
+ if(!url){$('status').textContent='رابط الصفحة غير صالح';return}
+ const target=new URL('/guest/save.html',location.origin);
+ target.searchParams.set('url',url);
+ target.searchParams.set('title',p.get('title')||'');
+ const popup=window.open(target.href,'aqxFavoritesSave','popup=yes,width=420,height=280,resizable=yes,scrollbars=no');
+ const status=$('status');
+ status.replaceChildren();
+ if(!popup){
+  status.textContent='المتصفح حظر النافذة المنبثقة. ';
+  const link=document.createElement('a');
+  link.href=target.href;link.target='_blank';link.rel='noopener';
+  link.textContent='افتح صفحة الحفظ مباشرة';
+  link.style.cssText='color:#6d4bd1;font-weight:800;text-decoration:underline';
+  status.appendChild(link);
+  return;
+ }
+ status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function loadRecent(){

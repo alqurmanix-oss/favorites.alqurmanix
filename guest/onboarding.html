@@ -75,7 +75,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px
     </div>
     <h2 style="font-size:15px;margin:22px 0 7px">رمز QR لفتح المكتبة</h2>
     <div id="qr"></div>
-    <p class="muted">يمكنك مسح الرمز بكاميرا جهاز آخر، ثم نسخ المفتاح الذي يظهر وفتحه من صفحة AQX Favorites.</p>
+    <p class="muted">امسح الرمز بكاميرا جهاز آخر؛ ستفتح صفحة AQX Favorites وسيتم تعبئة المفتاح تلقائيًا.</p>
     <div id="libraryRef" class="muted"></div>
     <div class="warning">لا تفقد المفتاح. لا تستطيع AQX استعادته إذا فقدته ولم تعد تملك جهازًا موثوقًا.</div>
     <button class="primary" id="continue" type="button">متابعة إلى مكتبتي</button>
@@ -103,7 +103,7 @@ function randomToken(bytes){const a=crypto.getRandomValues(new Uint8Array(bytes)
 function downloadKey(key){const blob=new Blob(['AQX Favorites — مفتاح مكتبتك\n\n'+key+'\n\nاحتفظ بهذا الملف في مكان آمن.'],{type:'text/plain;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='AQX-Favorites-Recovery-Key.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
 async function request(path,token,options={}){const r=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||'تعذر الاتصال بمكتبة AQX');return b}
 function finish(){location.replace(returnTo)}
-function showCreated(key,libraryId){$('choice').hidden=true;$('created').style.display='block';$('keyValue').textContent=key;$('libraryRef').textContent=libraryId?'رقم المكتبة: AQX-'+String(libraryId).toUpperCase():'';$('qr').replaceChildren();if(typeof QRCode==='function'){new QRCode($('qr'),{text:'AQXKEY:'+key,width:180,height:180,correctLevel:QRCode.CorrectLevel.M})}else{$('qr').textContent='استخدم المفتاح النصي أعلاه إذا لم يظهر رمز QR.'}setStatus('مفتاحك جاهز. انسخه لتنزيل نسخة تلقائيًا.')}
+function showCreated(key,libraryId){$('choice').hidden=true;$('created').style.display='block';$('keyValue').textContent=key;$('libraryRef').textContent=libraryId?'رقم المكتبة: AQX-'+String(libraryId).toUpperCase():'';$('qr').replaceChildren();if(typeof QRCode==='function'){new QRCode($('qr'),{text:'https://favorites.alqurmanix.com/guest/onboarding.html#key='+encodeURIComponent(key),width:180,height:180,correctLevel:QRCode.CorrectLevel.M})}else{$('qr').textContent='استخدم المفتاح النصي أعلاه إذا لم يظهر رمز QR.'}setStatus('مفتاحك جاهز. انسخه لتنزيل نسخة تلقائيًا.')}
 function currentDeviceLabel(){
  const ua=navigator.userAgent||'';
  if(/Android/i.test(ua))return /Tablet|Pad/i.test(ua)?'جهاز لوحي Android':'هاتف Android';
@@ -194,11 +194,12 @@ $('toggleKey').addEventListener('click',()=>{$('recoveryKey').type=$('recoveryKe
 $('copyKey').addEventListener('click',async()=>{const key=$('keyValue').textContent;downloadKey(key);try{await navigator.clipboard.writeText(key);setStatus('تم نسخ المفتاح وتنزيل ملفه بنجاح.')}catch{setStatus('تم تنزيل ملف المفتاح. انسخ النص الظاهر يدويًا إذا لم يعمل النسخ التلقائي.')}});
 $('downloadKey').addEventListener('click',()=>{downloadKey($('keyValue').textContent);setStatus('تم تنزيل نسخة المفتاح.')});
 $('continue').addEventListener('click',finish);
-const fromQr=params.get('key');
+const hashParams=new URLSearchParams(location.hash.replace(/^#/,''));
+const fromQr=params.get('key')||hashParams.get('key')||'';
 const saved=localStorage.getItem(SYNC_CODE_KEY)||'';
 if(saved)$('recoveryKey').value=saved;
 if(fromQr){$('recoveryKey').value=String(fromQr).replace(/^AQXKEY:/i,'');history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
-(async()=>{if(fromQr)return;const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();
+(async()=>{if(fromQr){await openExisting();return}const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();
 })();
 </script>
 </body>

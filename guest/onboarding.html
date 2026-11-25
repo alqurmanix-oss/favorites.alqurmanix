@@ -58,6 +58,12 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px
     <p class="muted">ننصحك بإنشاء حساب AQX وربط مكتبتك به لحمايتها، مع بقاء استخدام المكتبة دون حساب متاحًا.</p>
   </section>
 
+  <section id="trustDevice" hidden>
+    <h1>جهاز جديد على مكتبتك</h1>
+    <p class="sub">تم التحقق من مفتاح المكتبة. هل تريد اعتماد هذا المتصفح للوصول إليها بسهولة في المرات القادمة؟</p>
+    <div class="panel"><p class="muted">الجهاز الحالي: <strong id="deviceLabel"></strong></p><button class="primary" id="trustNow" type="button">اعتماد هذا الجهاز</button><div style="height:9px"></div><button class="secondary" id="notNow" type="button">ليس الآن — دخول مؤقت</button></div>
+    <p class="muted">يمكنك إلغاء اعتماد الأجهزة لاحقًا من إعدادات مكتبتك.</p>
+  </section>
   <section id="created">
     <div class="success">✓ تم إنشاء مفتاح مكتبتك وتفعيلها بنجاح. احتفظ بالمفتاح قبل المتابعة.</div>
     <h1 style="margin-top:17px">مفتاح مكتبتك</h1>
@@ -84,9 +90,12 @@ const TOKEN_KEY='aqx_favorites_guest_token_v1';
 const SYNC_CODE_KEY='aqx_favorites_sync_code_v1';
 const RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1';
 const RECOVERY_EDIT_KEY='aqx_favorites_recovery_key_edit_v1';
+const DEVICE_TRUSTED_KEY='aqx_favorites_device_trusted_v1';
+const SESSION_ONLY_KEY='aqx_favorites_device_session_only_v1';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
 let returnTo=params.get('return')||'/guest/index.html';
+let pendingDeviceToken='';
 try{const u=new URL(returnTo,location.origin);if(u.origin!==location.origin||!u.pathname.startsWith('/guest/'))returnTo='/guest/index.html';else returnTo=u.pathname+u.search+u.hash}catch{returnTo='/guest/index.html'}
 const setStatus=(s)=>{$('status').textContent=s||''};
 function randomToken(bytes){const a=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...a)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}
@@ -94,13 +103,37 @@ function downloadKey(key){const blob=new Blob(['AQX Favorites — مفتاح م�
 async function request(path,token,options={}){const r=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||'تعذر الاتصال بمكتبة AQX');return b}
 function finish(){location.replace(returnTo)}
 function showCreated(key,libraryId){$('choice').hidden=true;$('created').style.display='block';$('keyValue').textContent=key;$('libraryRef').textContent=libraryId?'رقم المكتبة: AQX-'+String(libraryId).toUpperCase():'';$('qr').replaceChildren();if(typeof QRCode==='function'){new QRCode($('qr'),{text:'AQXKEY:'+key,width:180,height:180,correctLevel:QRCode.CorrectLevel.M})}else{$('qr').textContent='استخدم المفتاح النصي أعلاه إذا لم يظهر رمز QR.'}setStatus('مفتاحك جاهز. انسخه لتنزيل نسخة تلقائيًا.')}
+function currentDeviceLabel(){
+ const ua=navigator.userAgent||'';
+ if(/Android/i.test(ua))return /Tablet|Pad/i.test(ua)?'جهاز لوحي Android':'هاتف Android';
+ if(/iPhone|iPad|iPod/i.test(ua))return 'جهاز Apple';
+ if(/Windows/i.test(ua))return 'جهاز Windows';
+ if(/Macintosh|Mac OS/i.test(ua))return 'جهاز Mac';
+ if(/CrOS/i.test(ua))return 'جهاز Chromebook';
+ return 'متصفح جديد';
+}
+async function registerTrustedDevice(token){
+ const result=await request('/guest/device/trust',token,{method:'POST',body:JSON.stringify({device_label:currentDeviceLabel()})});
+ if(!result.device_token)throw new Error('لم يصل رمز اعتماد الجهاز من الخادم.');
+ localStorage.setItem(TOKEN_KEY,result.device_token);
+ localStorage.setItem(DEVICE_TRUSTED_KEY,'1');
+ sessionStorage.removeItem(SESSION_ONLY_KEY);
+ return result;
+}
+function showTrustPrompt(token){
+ pendingDeviceToken=token;
+ $('choice').hidden=true;$('created').style.display='none';$('trustDevice').hidden=false;
+ $('deviceLabel').textContent=currentDeviceLabel();
+ setStatus('مفتاحك صحيح. اختر اعتماد هذا الجهاز أو الدخول المؤقت.');
+}
 async function activateForGuest(currentToken,libraryId){
  const recoveryKey=randomToken(24),sessionToken=randomToken(32);
  await request('/guest/recovery-key',currentToken,{method:'POST',body:JSON.stringify({recovery_key:recoveryKey,session_token:sessionToken})});
- localStorage.setItem(TOKEN_KEY,sessionToken);
  localStorage.setItem(SYNC_CODE_KEY,recoveryKey);
  localStorage.setItem(RECOVERY_SET_KEY,'1');
  localStorage.removeItem(RECOVERY_EDIT_KEY);
+ try{await registerTrustedDevice(sessionToken)}
+ catch(e){localStorage.setItem(TOKEN_KEY,sessionToken);sessionStorage.setItem(SESSION_ONLY_KEY,'1');setStatus('تم إنشاء مفتاح المكتبة. تعذر اعتماد الجهاز الآن؛ يمكنك المتابعة مؤقتًا ثم اعتماد الجهاز لاحقًا.')}
  showCreated(recoveryKey,libraryId);
 }
 async function createLibrary(){
@@ -115,14 +148,10 @@ async function createLibrary(){
 async function openExisting(){
  const key=$('recoveryKey').value.trim();
  if(!/^[A-Za-z0-9_-]{8,32}$/.test(key)){setStatus('أدخل مفتاح المكتبة الصحيح (من 8 إلى 32 حرفًا).');return}
- $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح وفتح مكتبتك…');
+ $('openLibrary').disabled=true;setStatus('جارٍ التحقق من المفتاح…');
  try{
   await request('/items?limit=1',key);
-  localStorage.setItem(TOKEN_KEY,key);
-  localStorage.setItem(SYNC_CODE_KEY,key);
-  localStorage.setItem(RECOVERY_SET_KEY,'1');
-  localStorage.removeItem(RECOVERY_EDIT_KEY);
-  finish();
+  showTrustPrompt(key);
  }catch(e){setStatus('تعذر فتح المكتبة: '+(e.message||'المفتاح غير صحيح.'));$('openLibrary').disabled=false}
 }
 async function upgradeExisting(){
@@ -130,11 +159,32 @@ async function upgradeExisting(){
  if(!token)return false;
  try{
   const check=await request('/items?limit=1',token);
-  if(localStorage.getItem(RECOVERY_SET_KEY)==='1'&&localStorage.getItem(SYNC_CODE_KEY)){finish();return true}
+  if(localStorage.getItem(RECOVERY_SET_KEY)==='1'&&localStorage.getItem(SYNC_CODE_KEY)){
+   if(localStorage.getItem(DEVICE_TRUSTED_KEY)==='1'||sessionStorage.getItem(SESSION_ONLY_KEY)==='1'){finish();return true}
+   showTrustPrompt(token);return true;
+  }
   await activateForGuest(token,check.guest_id||'');
   return true;
  }catch{return false}
 }
+$('trustNow').addEventListener('click',async()=>{
+ $('trustNow').disabled=true;setStatus('جارٍ اعتماد هذا الجهاز…');
+ try{
+  await registerTrustedDevice(pendingDeviceToken);
+  localStorage.setItem(SYNC_CODE_KEY,pendingDeviceToken);
+  localStorage.setItem(RECOVERY_SET_KEY,'1');
+  finish();
+ }catch(e){setStatus(e.message||'تعذر اعتماد الجهاز.');$('trustNow').disabled=false}
+});
+$('notNow').addEventListener('click',()=>{
+ if(!pendingDeviceToken)return;
+ localStorage.setItem(TOKEN_KEY,pendingDeviceToken);
+ localStorage.setItem(SYNC_CODE_KEY,pendingDeviceToken);
+ localStorage.setItem(RECOVERY_SET_KEY,'1');
+ localStorage.removeItem(DEVICE_TRUSTED_KEY);
+ sessionStorage.setItem(SESSION_ONLY_KEY,'1');
+ finish();
+});
 $('newLibrary').addEventListener('click',createLibrary);
 $('openLibrary').addEventListener('click',openExisting);
 $('toggleKey').addEventListener('click',()=>{$('recoveryKey').type=$('recoveryKey').type==='password'?'text':'password';$('toggleKey').textContent=$('recoveryKey').type==='password'?'إظهار المفتاح':'إخفاء المفتاح'});

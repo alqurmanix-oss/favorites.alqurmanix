@@ -195,10 +195,10 @@ $('copyKey').addEventListener('click',async()=>{const key=$('keyValue').textCont
 $('downloadKey').addEventListener('click',()=>{downloadKey($('keyValue').textContent);setStatus('تم تنزيل نسخة المفتاح.')});
 $('continue').addEventListener('click',finish);
 const fromQr=params.get('key');
-if(fromQr){$('recoveryKey').value=String(fromQr).replace(/^AQXKEY:/i,'');history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
 const saved=localStorage.getItem(SYNC_CODE_KEY)||'';
 if(saved)$('recoveryKey').value=saved;
-(async()=>{const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();
+if(fromQr){$('recoveryKey').value=String(fromQr).replace(/^AQXKEY:/i,'');history.replaceState(null,'',location.pathname+(params.get('return')?'?return='+encodeURIComponent(returnTo):''))}
+(async()=>{if(fromQr)return;const token=localStorage.getItem(TOKEN_KEY)||'';if(token){const upgraded=await upgradeExisting();if(upgraded)return}})();
 })();
 </script>
 </body>

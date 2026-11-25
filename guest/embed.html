@@ -43,7 +43,15 @@ async function unlock(){
   try{
     if(document.hasStorageAccess && !(await document.hasStorageAccess())){
       if(!document.requestStorageAccess)throw new Error('المتصفح لا يدعم مشاركة تخزين AQX داخل المواقع الخارجية.');
-      await document.requestStorageAccess({localStorage:true});
+      try {
+        await document.requestStorageAccess({localStorage:true});
+      } catch (e) {
+        if (e && (e.name === 'TypeError' || e.name === 'NotSupportedError')) {
+          await document.requestStorageAccess();
+        } else {
+          throw e;
+        }
+      }
     }
     const token=localStorage.getItem(TOKEN_KEY)||'';
     if(token.length<8)throw new Error('افتح مكتبة AQX Favorites بهذا المتصفح أولاً، ثم أعد المحاولة.');

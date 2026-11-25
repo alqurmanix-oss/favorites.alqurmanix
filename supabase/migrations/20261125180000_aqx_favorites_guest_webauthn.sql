@@ -15,6 +15,7 @@ create index if not exists aqx_favorites_guest_webauthn_guest_idx on public.aqx_
 create table if not exists public.aqx_favorites_webauthn_challenges (
  id uuid primary key default gen_random_uuid(),
  challenge text not null,
+ origin text not null,
  purpose text not null check (purpose in ('register','authenticate')),
  guest_id uuid,
  created_at timestamptz not null default now(),

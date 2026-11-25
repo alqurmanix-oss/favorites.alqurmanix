@@ -75,6 +75,20 @@ const hmacHash = async (s: string) => {
   const cryptoKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(pepper), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(s))));
 };
+async function enforceLibrarySyncRateLimit(req: Request, guestId: string) {
+  const forwarded = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const ip = forwarded.split(",")[0].trim().toLowerCase() || "unknown";
+  const salt = Deno.env.get("AQX_FAVORITES_RATE_SALT") || KEY;
+  const ipKey = await hash(salt + "|library-sync-ip|" + ip);
+  const guestKey = await hash(salt + "|library-sync-guest|" + guestId);
+  const [ipLimit, guestLimit] = await Promise.all([
+    db.rpc("aqx_favorites_consume_rate_limit", { p_key_hash_hex: ipKey, p_limit: 10, p_window_seconds: 900 }),
+    db.rpc("aqx_favorites_consume_rate_limit", { p_key_hash_hex: guestKey, p_limit: 5, p_window_seconds: 900 })
+  ]);
+  if (ipLimit.error) throw ipLimit.error;
+  if (guestLimit.error) throw guestLimit.error;
+  if (ipLimit.data !== true || guestLimit.data !== true) throw new ApiError("LIBRARY_SYNC_RATE_LIMITED", 429);
+};
 async function recordGuestAuthFailure(req: Request) {
   const forwarded = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const ip = forwarded.split(",")[0].trim().toLowerCase() || "unknown";
@@ -1427,6 +1441,44 @@ Deno.serve(async (req: Request) => {
       if (updateError) throw updateError;
       await event(current, "guest_recovery_key_set");
       return out(req, { ok: true, recovery_key_saved: true, storage: "hmac_sha256" });
+    }
+    if (req.method === "POST" && path.endsWith("/guest/library-sync")) {
+      const source = await guest(req);
+      await enforceLibrarySyncRateLimit(req, source.owner_id);
+      const body = await req.json().catch(() => ({}));
+      const targetKey = typeof body.target_recovery_key === "string" ? body.target_recovery_key.trim() : "";
+      if (targetKey.length < 8 || targetKey.length > 32 || !/^[A-Za-z0-9_-]+$/.test(targetKey)) {
+        throw new ApiError("LIBRARY_SYNC_KEY_INVALID", 400);
+      }
+      const targetHash = await hmacHash(targetKey);
+      const { data: target, error: targetError } = await db.from("aqx_favorites_guest_sessions")
+        .select("guest_id,status,expires_at")
+        .eq("recovery_key_hash_hex", targetHash).maybeSingle();
+      if (targetError) throw targetError;
+      if (!target || target.status !== "active" || new Date(target.expires_at).getTime() <= Date.now()) {
+        throw new ApiError("LIBRARY_SYNC_TARGET_NOT_FOUND", 404);
+      }
+      if (target.guest_id === source.owner_id) {
+        throw new ApiError("LIBRARY_SYNC_SAME_LIBRARY", 409);
+      }
+      const newSessionToken = token();
+      const { data: merged, error: mergeError } = await db.rpc("aqx_favorites_merge_guest_to_guest", {
+        p_source_guest_id: source.owner_id,
+        p_target_guest_id: target.guest_id,
+        p_target_recovery_hash: targetHash,
+        p_new_target_token_hash: await hash(newSessionToken)
+      });
+      if (mergeError) {
+        const message = String(mergeError.message || "");
+        if (message.includes("library_sync_target_invalid")) throw new ApiError("LIBRARY_SYNC_TARGET_NOT_FOUND", 404);
+        if (message.includes("library_sync_source_invalid")) throw new ApiError("LIBRARY_SYNC_SOURCE_INVALID", 409);
+        if (message.includes("library_sync")) throw new ApiError("LIBRARY_SYNC_FAILED:" + message, 409);
+        throw mergeError;
+      }
+      return out(req, {
+        ok:true, merged:true, guest_id:target.guest_id,
+        guest_token:newSessionToken, summary:merged
+      });
     }
     if (req.method === "POST" && path.endsWith("/guest/device/trust")) {
       const current = await guest(req);

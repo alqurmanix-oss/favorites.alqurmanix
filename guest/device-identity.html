@@ -3,6 +3,7 @@
 const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-device-identity';
 const TOKEN='aqx_favorites_guest_token_v1',MIGRATED='aqx_favorites_cloud_migrated_v1',REC='aqx_favorites_recovery_key_set_v1',TRUST='aqx_favorites_device_trusted_v1',RID='aqx_favorites_device_record_id_v1',IDENTITY='aqx_favorites_device_identity_v1',SESSION='aqx_favorites_device_session_only_v1',SYNC='aqx_favorites_sync_code_v1';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search),mode=params.get('mode')==='register'?'register':'authenticate';
+function safeReturn(){try{const u=new URL(params.get('return')||'/guest/index.html',location.origin);return u.origin===location.origin&&u.pathname.startsWith('/guest/')?u.pathname+u.search+u.hash:'/guest/index.html'}catch{return '/guest/index.html'}}
 function dec(v){const s=String(v||'').replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0))}
 function enc(v){return btoa(String.fromCharCode(...new Uint8Array(v))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/g,'')}
 function options(o){const p={...o,challenge:dec(o.challenge)};if(o.user)p.user={...o.user,id:dec(o.user.id)};for(const k of ['excludeCredentials','allowCredentials'])if(o[k])p[k]=o[k].map(x=>({...x,id:dec(x.id)}));return p}
@@ -12,7 +13,7 @@ async function run(){const b=$('run');b.disabled=true;$('status').textContent='�
 let result;
 if(mode==='register'){const token=localStorage.getItem(TOKEN)||'';if(token.length<32)throw Error('افتح مكتبتك أولًا ثم فعّل هوية الجهاز.');const start=await call('/register/options',{},token);const c=await navigator.credentials.create({publicKey:options(start.options)});if(!c)throw Error('لم يكتمل إنشاء الاعتماد.');result=await call('/register/verify',{challenge_id:start.challenge_id,response:serialize(c,true)},token)}
 else{const start=await call('/authenticate/options',{});const c=await navigator.credentials.get({publicKey:options(start.options)});if(!c)throw Error('لم يتم اختيار اعتماد.');result=await call('/authenticate/verify',{challenge_id:start.challenge_id,response:serialize(c,false)})}
-if(result.device_token){localStorage.setItem(TOKEN,result.device_token);localStorage.setItem(RID,result.device?.id||'')}localStorage.setItem(REC,'1');localStorage.setItem(TRUST,'1');localStorage.setItem(IDENTITY,'1');localStorage.setItem(MIGRATED,'1');/* Keep the recovery key locally as a fallback. */sessionStorage.removeItem(SESSION);$('status').textContent='تم التحقق من اعتماد الجهاز بنجاح. جارٍ فتح مكتبتك…';const back=params.get('return')||'/guest/index.html';setTimeout(()=>location.replace(back),350)
+if(result.device_token){localStorage.setItem(TOKEN,result.device_token);localStorage.setItem(RID,result.device?.id||'')}localStorage.setItem(REC,'1');localStorage.setItem(TRUST,'1');localStorage.setItem(IDENTITY,'1');localStorage.setItem(MIGRATED,'1');/* Keep the recovery key locally as a fallback. */sessionStorage.removeItem(SESSION);$('status').textContent='تم التحقق من اعتماد الجهاز بنجاح. جارٍ فتح مكتبتك…';const back=safeReturn();setTimeout(()=>location.replace(back),350)
 }catch(e){$('status').textContent=e.message||'تعذر التعرف على الجهاز.';b.disabled=false}}
 $('run').addEventListener('click',run);
 })();

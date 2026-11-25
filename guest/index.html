@@ -193,7 +193,7 @@ body.aqx-recent-popup{background:#f8f7fc!important;margin:0!important;font-famil
 <div class="toast" id="toast"></div>
 <script>
 (()=>{
-const KEY='aqx_favorites_guest_v1',TOKEN_KEY='aqx_favorites_guest_token_v1',RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1',RECOVERY_EDIT_KEY='aqx_favorites_recovery_key_edit_v1',SYNC_CODE_KEY='aqx_favorites_sync_code_v1';
+const KEY='aqx_favorites_guest_v1',TOKEN_KEY='aqx_favorites_guest_token_v1',RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1',RECOVERY_EDIT_KEY='aqx_favorites_recovery_key_edit_v1',SYNC_CODE_KEY='aqx_favorites_sync_code_v1',DEVICE_TRUSTED_KEY='aqx_favorites_device_trusted_v1',SESSION_ONLY_KEY='aqx_favorites_device_session_only_v1';
 const $=id=>document.getElementById(id);
 const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
 const CLOUD_MIGRATED='aqx_favorites_cloud_migrated_v1',QUEUE_KEY='aqx_favorites_pending_v1';
@@ -215,7 +215,7 @@ async function bootCloud(){
  if(cloudBusy)return;
  const token=localStorage.getItem(TOKEN_KEY)||'';
  if(token.length<8||token.length>256){goToGuestOnboarding();return}
- if(localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)){goToGuestOnboarding();return}
+ if(localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)||(localStorage.getItem(DEVICE_TRUSTED_KEY)!=='1'&&sessionStorage.getItem(SESSION_ONLY_KEY)!=='1')){goToGuestOnboarding();return}
  cloudBusy=true;
  try{
   const test=await fetch(API+'/items?limit=1',{headers:{'x-aqx-guest-token':token},cache:'no-store'});
@@ -226,6 +226,7 @@ async function bootCloud(){
    }
    if(test.status>=500){cloudStatus='offline';throw new Error(body.error||'تعذر الاتصال بمكتبة AQX')}
    localStorage.removeItem(TOKEN_KEY);
+   localStorage.removeItem(DEVICE_TRUSTED_KEY);
    goToGuestOnboarding();
    return;
   }

@@ -30,6 +30,8 @@ const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
 const TOKEN_KEY='aqx_favorites_guest_token_v1';
 const SYNC_CODE_KEY='aqx_favorites_sync_code_v1';
 const RECOVERY_SET_KEY='aqx_favorites_recovery_key_set_v1';
+const DEVICE_TRUSTED_KEY='aqx_favorites_device_trusted_v1';
+const SESSION_ONLY_KEY='aqx_favorites_device_session_only_v1';
 const q=new URLSearchParams(location.search);
 const status=document.getElementById('status');
 const spinner=document.getElementById('spinner');
@@ -52,7 +54,7 @@ async function run(){
  url.hash='';
  title=(q.get('title')||url.hostname).trim().slice(0,180)||url.hostname;
  let token=localStorage.getItem(TOKEN_KEY)||'';
- if(token.length<8||token.length>256||localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)){
+ if(token.length<8||token.length>256||localStorage.getItem(RECOVERY_SET_KEY)!=='1'||!localStorage.getItem(SYNC_CODE_KEY)||(localStorage.getItem(DEVICE_TRUSTED_KEY)!=='1'&&sessionStorage.getItem(SESSION_ONLY_KEY)!=='1')){
   const returnTo=location.pathname+location.search+location.hash;
   location.replace('/guest/onboarding.html?return='+encodeURIComponent(returnTo));
   return;

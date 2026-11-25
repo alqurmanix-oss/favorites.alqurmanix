@@ -1458,9 +1458,6 @@ Deno.serve(async (req: Request) => {
         if (message.includes("library_sync")) throw new ApiError("LIBRARY_SYNC_FAILED:" + message, 409);
         throw mergeError;
       }
-      await event({owner_type:"guest",owner_id:target.guest_id},"guest_library_sync_completed",null,{
-        source_guest_id:source.owner_id, merged_rows:merged?.merged_rows || 0
-      });
       return out(req, {
         ok:true, merged:true, guest_id:target.guest_id,
         guest_token:targetKey, summary:merged

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>AQX Favorites Embed</title>
+<style>
+:root{font-family:Tahoma,Arial,sans-serif;color:#29233c}*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}
+button{font:inherit;cursor:pointer}
+#save{height:48px;min-width:142px;padding:0 17px;border:0;border-radius:13px;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font-weight:800;font-size:13px;box-shadow:0 5px 18px #34205b22;white-space:nowrap}
+#save:disabled{opacity:.7;cursor:wait}
+.heart{display:inline-block;margin-inline-start:6px;font-size:17px;vertical-align:-1px}
+.fly{position:fixed;pointer-events:none;z-index:9;animation:fly .85s ease-out forwards}
+@keyframes fly{0%{opacity:1;transform:translateY(0) scale(.8)}100%{opacity:0;transform:translateY(-72px) scale(1.8)}}
+#status{font:11px Tahoma,Arial,sans-serif;color:#6d4bd1;margin-top:4px;min-height:14px}
+#float{position:fixed;left:5px;top:50%;transform:translateY(-50%);width:48px;height:48px;border:0;border-radius:50%;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font-size:25px;box-shadow:0 5px 18px #34205b55}
+#panel{display:none;position:fixed;left:58px;top:50%;transform:translateY(-50%);width:310px;max-width:calc(100vw - 65px);height:min(490px,calc(100vh - 24px));background:#fff;border:1px solid #e9e3f5;border-radius:18px;box-shadow:0 12px 40px #24174435;overflow:hidden}
+#panel.open{display:flex;flex-direction:column}
+.head{padding:15px 16px;background:#faf8ff;border-bottom:1px solid #eee9f6;display:flex;justify-content:space-between;align-items:center}
+.head strong{font-size:14px}.head button{border:0;background:transparent;color:#6d4bd1;font-size:22px}
+#items{padding:10px 12px;overflow:auto;flex:1}
+.item{display:block;padding:11px 10px;border-bottom:1px solid #f0edf5;text-decoration:none;color:#29233c}
+.item b{display:block;font-size:12px;line-height:1.6}.item small{display:block;color:#8a8498;font-size:10px;direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.empty,.msg{padding:18px 10px;color:#817b90;font-size:12px;line-height:1.8;text-align:center}
+.foot{padding:10px 14px;border-top:1px solid #eee9f6;text-align:center}.foot a{color:#6d4bd1;text-decoration:none;font-weight:800;font-size:12px}
+</style>
+</head>
+<body>
+<div id="saveWrap" hidden><button id="save" type="button">احفظ الصفحة <span class="heart">♡</span></button><div id="status" role="status"></div></div>
+<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong><button id="close" type="button" aria-label="إغلاق">×</button></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/" target="_blank" rel="noopener">فتح المكتبة كاملة</a></div></section></div>
+<script>
+(()=>{
+'use strict';
+const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
+const TOKEN_KEY='aqx_favorites_guest_token_v1';
+const p=new URLSearchParams(location.search),mode=p.get('mode');
+const $=id=>document.getElementById(id);
+const resize=(open)=>parent.postMessage({type:'aqx-favorites-embed-resize',open},'*');
+let busy=false;
+async function unlock(){
+  if(busy)throw new Error('جارٍ التحقق');
+  busy=true;
+  try{
+    if(document.hasStorageAccess && !(await document.hasStorageAccess())){
+      if(!document.requestStorageAccess)throw new Error('المتصفح لا يدعم مشاركة تخزين AQX داخل المواقع الخارجية.');
+      await document.requestStorageAccess({localStorage:true});
+    }
+    const token=localStorage.getItem(TOKEN_KEY)||'';
+    if(token.length<8)throw new Error('افتح مكتبة AQX Favorites بهذا المتصفح أولاً، ثم أعد المحاولة.');
+    return token;
+  }finally{busy=false}
+}
+async function api(path,token,options={}){
+ const r=await fetch(API+path,{...options,headers:{'Content-Type':'application/json','x-aqx-guest-token':token,...(options.headers||{})},cache:'no-store'});
+ const b=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(b.error||'تعذر الاتصال بالمكتبة');
+ return b;
+}
+function heart(){
+ const el=document.createElement('span');el.className='fly';el.textContent='♥';
+ el.style.left='72px';el.style.top='8px';$('saveWrap').appendChild(el);setTimeout(()=>el.remove(),900);
+}
+async function save(){
+ const b=$('save'),status=$('status');if(b.disabled)return;
+ b.disabled=true;status.textContent='';
+ try{
+  const token=await unlock();
+  const url=p.get('url')||'';const title=(p.get('title')||new URL(url).hostname).slice(0,180);
+  let result;
+  try{result=await api('/items',token,{method:'POST',body:JSON.stringify({url,title,item_type:'link'})})}
+  catch(e){if(e.message==='FAVORITE_ALREADY_EXISTS'){heart();status.textContent='';return}throw e}
+  heart();
+ }catch(e){status.textContent=e.message||'تعذر الحفظ'}
+ finally{b.disabled=false}
+}
+function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function loadRecent(){
+ const box=$('items');box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';
+ try{
+  const token=await unlock(),all=[];
+  for(let offset=0;offset<5000;offset+=100){
+   const r=await api('/items?limit=100&offset='+offset,token);
+   all.push(...(r.items||[]));if((r.items||[]).length<100)break;
+  }
+  all.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const latest=all.slice(0,5);
+  box.replaceChildren();
+  if(!latest.length){box.innerHTML='<div class="empty">لا توجد محفوظات حتى الآن.</div>';return}
+  latest.forEach(x=>{
+   const a=document.createElement('a');a.className='item';a.href=x.url;a.target='_blank';a.rel='noopener';
+   const b=document.createElement('b');b.textContent=x.title||x.url;
+   const sm=document.createElement('small');sm.textContent=x.url;
+   a.append(b,sm);box.appendChild(a);
+  });
+ }catch(e){box.innerHTML='<div class="msg">'+safeText(e.message||'تعذر تحميل المحفوظات')+'</div>'}
+}
+if(mode==='save'){
+ $('saveWrap').hidden=false;
+ const u=p.get('url')||'';
+ try{new URL(u)}catch{$('save').disabled=true;$('status').textContent='رابط الصفحة غير صالح'}
+ $('save').addEventListener('click',save);
+}else if(mode==='recent'){
+ $('recentWrap').hidden=false;
+ $('float').addEventListener('click',async()=>{$('panel').classList.add('open');resize(true);await loadRecent()});
+ $('close').addEventListener('click',()=>{$('panel').classList.remove('open');resize(false)});
+}else{document.body.textContent='Invalid embed mode'}
+})();
+</script>
+</body></html>

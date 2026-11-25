@@ -27,7 +27,7 @@ button{font:inherit;cursor:pointer}
 </head>
 <body>
 <div id="saveWrap" hidden><button id="save" type="button">احفظ الصفحة <span class="heart">♡</span></button><div id="status" role="status"></div></div>
-<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong><button id="close" type="button" aria-label="إغلاق">×</button></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/" target="_blank" rel="noopener">فتح المكتبة كاملة</a></div></section></div>
+<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div></section></div>
 <script>
 (()=>{
 'use strict';
@@ -58,7 +58,7 @@ async function api(path,token,options={}){
 }
 function heart(){
  const el=document.createElement('span');el.className='fly';el.textContent='♥';
- el.style.left='72px';el.style.top='8px';$('saveWrap').appendChild(el);setTimeout(()=>el.remove(),900);
+ const r=$('save').getBoundingClientRect();el.style.left=(r.left+r.width/2)+'px';el.style.top=r.top+'px';$('saveWrap').appendChild(el);setTimeout(()=>el.remove(),900);
 }
 async function save(){
  const b=$('save'),status=$('status');if(b.disabled)return;
@@ -101,8 +101,7 @@ if(mode==='save'){
  $('save').addEventListener('click',save);
 }else if(mode==='recent'){
  $('recentWrap').hidden=false;
- $('float').addEventListener('click',async()=>{$('panel').classList.add('open');resize(true);await loadRecent()});
- $('close').addEventListener('click',()=>{$('panel').classList.remove('open');resize(false)});
+ $('float').addEventListener('click',async()=>{const opening=!$('panel').classList.contains('open');$('panel').classList.toggle('open',opening);resize(opening);if(opening)await loadRecent()});
 }else{document.body.textContent='Invalid embed mode'}
 })();
 </script>

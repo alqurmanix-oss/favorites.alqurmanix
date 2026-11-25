@@ -36,21 +36,36 @@ const TOKEN_KEY='aqx_favorites_guest_token_v1';
 const p=new URLSearchParams(location.search),mode=p.get('mode');
 const $=id=>document.getElementById(id);
 const resize=(open)=>parent.postMessage({type:'aqx-favorites-embed-resize',open},'*');
-let tokenPromise=null;
+let tokenPromise=null,guestStorage=null,storageAccessPromise=null;
+async function requestGuestStorageAccess(){
+  if(guestStorage)return guestStorage;
+  if(storageAccessPromise)return storageAccessPromise;
+  storageAccessPromise=(async()=>{
+    if(typeof document.requestStorageAccess!=='function')
+      throw new Error('هذا المتصفح لا يدعم منح AQX وصولًا موحدًا للتخزين بين المواقع.');
+    // Must be called directly from the visitor's click/tap. The browser owns
+    // the permission UI; AQX never simulates or silently grants this permission.
+    const handle=await document.requestStorageAccess({localStorage:true});
+    if(!handle||!handle.localStorage)
+      throw new Error('المتصفح لم يمنح وصول التخزين المشترك المطلوب.');
+    guestStorage=handle.localStorage;
+    return guestStorage;
+  })();
+  try{return await storageAccessPromise}finally{storageAccessPromise=null}
+}
 async function unlock(){
   if(tokenPromise)return tokenPromise;
   tokenPromise=(async()=>{
+    const storage=await requestGuestStorageAccess();
     let saved='';
-    try{saved=localStorage.getItem(TOKEN_KEY)||''}
-    catch{throw new Error('المتصفح منع التخزين المحلي؛ تعذر إنشاء جلسة Guest دائمة.')}
+    try{saved=storage.getItem(TOKEN_KEY)||''}
+    catch{throw new Error('تعذر الوصول إلى مكتبة Guest المشتركة.')}
     if(saved.length>=8)return saved;
-    // Create the first Guest session automatically inside the Favorites-origin
-    // iframe, then persist it under the exact key used by the main Favorites app.
     const created=await api('/guest/session','',{method:'POST',body:'{}'});
     const fresh=String(created.guest_token||'');
     if(fresh.length<8)throw new Error('تعذر إنشاء جلسة Guest');
-    try{localStorage.setItem(TOKEN_KEY,fresh)}
-    catch{throw new Error('تعذر حفظ جلسة Guest في تخزين المتصفح')}
+    try{storage.setItem(TOKEN_KEY,fresh)}
+    catch{throw new Error('تعذر حفظ جلسة Guest المشتركة.')}
     return fresh;
   })();
   try{return await tokenPromise}finally{tokenPromise=null}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="theme-color" content="#6d4bd1">
+<title>آخر محفوظاتي — AQX Favorites</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:17px;background:#f8f6fc;color:#29233c;font:13px Tahoma,Arial,sans-serif}
+main{max-width:520px;margin:auto;background:#fff;border:1px solid #ebe6f5;border-radius:19px;overflow:hidden;box-shadow:0 12px 34px #34205b12}
+header{display:flex;align-items:center;justify-content:space-between;padding:17px;background:#fbfaff;border-bottom:1px solid #eee9f6}
+.brand{font-weight:900;font-size:15px}.brand small{display:block;font-size:10px;color:#8b8497;font-weight:400;margin-top:4px}
+header a,footer a{color:#6d4bd1;font-size:11px;font-weight:800;text-decoration:none}
+#items{padding:8px 14px;max-height:calc(100vh - 160px);overflow:auto}
+.item{display:flex;gap:11px;align-items:center;padding:12px 0;border-bottom:1px solid #f0edf5;min-width:0}
+.thumb{width:58px;height:58px;flex:none;border-radius:12px;object-fit:cover;background:#f2effb;border:1px solid #eee9f6}
+.info{min-width:0;flex:1}.info strong{display:block;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.info small{display:block;color:#8a8498;font-size:10px;direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}
+.read{display:inline-block;margin-top:7px;color:#6d4bd1;font-size:10px;font-weight:800;text-decoration:none}
+.empty{padding:28px 14px;text-align:center;color:#817b90;line-height:1.9}
+footer{padding:14px;text-align:center;border-top:1px solid #eee9f6}
+#status{padding:12px 16px;color:#6d4bd1;text-align:center;font-size:11px;line-height:1.8}
+</style>
+</head>
+<body>
+<main>
+<header><div class="brand">AQX Favorites<small>آخر خمسة محفوظات</small></div><a href="/guest/index.html" target="_blank" rel="noopener">مكتبتي بالكامل ↗</a></header>
+<div id="items"><div class="empty">جارٍ تحميل محفوظاتك…</div></div>
+<div id="status" role="status" aria-live="polite"></div>
+<footer><a href="/guest/index.html" target="_blank" rel="noopener">فتح مكتبتي بالكامل ←</a></footer>
+</main>
+<script>
+(()=>{'use strict';
+const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
+const TOKEN_KEY='aqx_favorites_guest_token_v1';
+const $=id=>document.getElementById(id);
+function showError(message){$('items').replaceChildren();const box=document.createElement('div');box.className='empty';box.textContent=message;const link=document.createElement('a');link.href='/guest/index.html';link.textContent='فتح مكتبتك أو استعادتها';link.style.cssText='display:block;margin:12px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';$('items').append(box,link)}
+async function run(){
+ const token=localStorage.getItem(TOKEN_KEY)||'';
+ if(token.length<8||token.length>256){showError('لا توجد مكتبة مفعّلة على هذا المتصفح.');return}
+ try{
+  const all=[];
+  for(let offset=0;offset<5000;offset+=100){
+   const r=await fetch(API+'/items?limit=100&offset='+offset,{headers:{'Content-Type':'application/json','x-aqx-guest-token':token},cache:'no-store'});
+   const b=await r.json().catch(()=>({}));
+   if(!r.ok)throw new Error(b.error||'تعذر تحميل المحفوظات.');
+   all.push(...(b.items||[]));if((b.items||[]).length<100)break;
+  }
+  all.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const latest=all.slice(0,5),box=$('items');box.replaceChildren();
+  if(!latest.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='لا توجد محفوظات حتى الآن.';box.appendChild(empty);return}
+  latest.forEach(item=>{
+   const row=document.createElement('article');row.className='item';
+   const img=document.createElement('img');img.className='thumb';img.alt='';img.referrerPolicy='no-referrer';img.loading='lazy';
+   try{img.src=item.metadata?.og_image||item.metadata?.image||item.metadata?.thumbnail||new URL('/favicon.ico',new URL(item.url).origin).href}catch{}
+   img.onerror=()=>{img.removeAttribute('src');img.style.visibility='hidden'};
+   const info=document.createElement('div');info.className='info';
+   const title=document.createElement('strong');title.textContent=item.title||item.url;
+   const url=document.createElement('small');url.textContent=item.url;
+   const read=document.createElement('a');read.className='read';read.href=item.url;read.target='_blank';read.rel='noopener noreferrer';read.textContent='أكمل القراءة ←';
+   info.append(title,url,read);row.append(img,info);box.appendChild(row);
+  });
+ }catch(e){showError(e.message||'تعذر تحميل المحفوظات.')}
+}
+run();
+})();
+</script>
+</body>
+</html>

@@ -42,6 +42,11 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px
     <h1>مكتبتك الشخصية معك في كل مكان</h1>
     <p class="sub">افتح مكتبتك الحالية بمفتاحها، أو أنشئ مكتبة جديدة. لا تحتاج إلى بريد إلكتروني أو كلمة مرور.</p>
     <div class="panel">
+      <strong style="display:block;text-align:center;margin-bottom:8px">جرّب التعرف على مكتبتك</strong>
+      <p class="muted">إذا سبق تفعيل هوية AQX على هذا الجهاز، جرّب فتح المكتبة دون إدخال مفتاح.</p>
+      <button class="secondary" type="button" onclick="location.href='/guest/device-identity.html?mode=authenticate&return='+encodeURIComponent(new URLSearchParams(location.search).get('return')||'/guest/index.html')">التعرف على جهازي</button>
+    </div>
+    <div class="panel">
       <label for="recoveryKey">لديّ مكتبة بالفعل — أدخل مفتاحها</label>
       <input id="recoveryKey" type="password" autocomplete="off" spellcheck="false" maxlength="32" placeholder="مفتاح المكتبة (8 إلى 32 حرفًا)">
       <div class="row">
@@ -77,6 +82,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 17px
     <div id="qr"></div>
     <p class="muted">امسح الرمز بكاميرا جهاز آخر؛ ستفتح صفحة AQX Favorites وسيتم تعبئة المفتاح تلقائيًا.</p>
     <div id="libraryRef" class="muted"></div>
+    <div class="panel"><strong style="display:block;text-align:center;margin-bottom:8px">التعرف التلقائي مستقبلًا</strong><p class="muted">فعّل اعتمادًا تشفيريًا لهذا الجهاز لتسهيل العودة إلى مكتبتك.</p><button class="secondary" type="button" onclick="location.href='/guest/device-identity.html?mode=register&return='+encodeURIComponent(new URLSearchParams(location.search).get('return')||'/guest/index.html')">تفعيل هوية هذا الجهاز</button></div>
     <div class="warning">لا تفقد المفتاح. لا تستطيع AQX استعادته إذا فقدته ولم تعد تملك جهازًا موثوقًا.</div>
     <button class="primary" id="continue" type="button">متابعة إلى مكتبتي</button>
   </section>

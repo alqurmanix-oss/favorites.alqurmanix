@@ -24,9 +24,9 @@ function mount(){
  const redirect=()=>{if(redirecting)return;redirecting=true;if(watchdog)clearInterval(watchdog);window.location.replace(HOME)};
  function intact(){
   if(redirecting)return;
-  const expected=opened?expanded:compact;
   const s=frame.style,cs=getComputedStyle(frame);
-  const valid=!!loader&&loader.isConnected&&loader.parentNode===loaderParent&&frame.isConnected&&frame.parentElement===document.body&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&s.cssText===expected&&cs.position==='fixed'&&cs.display!=='none'&&cs.visibility!=='hidden'&&cs.visibility!=='collapse'&&Number(cs.opacity)>0&&cs.zIndex==='2147483000'&&cs.overflow==='hidden';
+  const styleValid=s.position==='fixed'&&s.width===(opened?'100vw':'60px')&&s.height===(opened?'100dvh':'80px')&&s.transform===(opened?'none':'translateY(-50%)')&&s.zIndex==='2147483000'&&s.overflow==='hidden'&&s.borderWidth==='0px'&&s.backgroundColor==='transparent'&&(opened?(s.left==='0px'&&s.top==='0px'&&s.right==='0px'&&s.bottom==='0px'):(s.left==='5px'&&s.top==='50%'&&s.right===''&&s.bottom===''));
+  const valid=!!loader&&loader.isConnected&&loader.parentNode===loaderParent&&frame.isConnected&&frame.parentElement===document.body&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid&&cs.position==='fixed'&&cs.display!=='none'&&cs.visibility!=='hidden'&&cs.visibility!=='collapse'&&Number(cs.opacity)>0&&cs.zIndex==='2147483000'&&cs.overflow==='hidden'&&cs.borderTopWidth==='0px';
   if(!valid)redirect();
  }
  const watch=(target,options)=>{if(!target)return null;const observer=new MutationObserver(intact);observer.observe(target,options);return observer};

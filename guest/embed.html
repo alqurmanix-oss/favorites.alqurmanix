@@ -202,6 +202,19 @@ if(mode==='save'){
 }else if(mode==='recent'){
  $('recentWrap').hidden=false;
  const signalViolation=()=>{if(window.parent!==window)window.parent.postMessage({type:'aqx-favorites-tamper'},'*')};
+ // Protect the AQX brand from startup; the floating icon is deliberately not monitored.
+ const initialBrand=$('aqxBrand');
+ const initialBrandAnchor=initialBrand&&initialBrand.querySelector('a.brand-link');
+ const initialBrandHead=initialBrand&&initialBrand.parentElement;
+ const checkBrand=()=>{
+  if(!initialBrand||!initialBrand.isConnected||initialBrand.parentElement!==initialBrandHead||
+     !initialBrandAnchor||!initialBrandAnchor.isConnected||initialBrandAnchor.parentElement!==initialBrand)
+   signalViolation();
+ };
+ const brandObserver=new MutationObserver(checkBrand);
+ if(initialBrandHead)brandObserver.observe(initialBrandHead,{childList:true});
+ if(initialBrand)brandObserver.observe(initialBrand,{childList:true});
+ checkBrand();
  const openRecent=()=>{
   $('panel').classList.add('open');$('recentBackdrop').classList.add('open');
   resize(true);

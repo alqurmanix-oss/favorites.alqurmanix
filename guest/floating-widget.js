@@ -29,19 +29,13 @@ function mount(){
  let opened=false,integrityArmed=false;
  const loaderParent=loader&&loader.parentNode;
  function intact(){
-  if(!integrityArmed)return;
-  const s=frame.style;
-  // Validate only the inline properties owned by AQX. Computed-style checks
-  // are intentionally excluded: publisher CSS can transiently affect them
-  // during initial layout and must never trigger a false-positive redirect.
-  const styleValid=s.position==='fixed'&&s.width===(opened?'100vw':'60px')&&s.height===(opened?((typeof CSS!=='undefined'&&typeof CSS.supports==='function'&&CSS.supports('height','100dvh'))?'100dvh':'100vh'):'80px')&&s.transform===(opened?'none':'translateY(-50%)')&&s.zIndex==='2147483000'&&s.overflow==='hidden'&&s.borderWidth==='0px'&&(opened?(s.left==='0px'&&s.top==='0px'&&s.right==='0px'&&s.bottom==='0px'):(s.left==='5px'&&s.top==='50%'&&s.right===''&&s.bottom===''));
-  const launcherValid=frame.dataset.ready==='1'?!launcher.isConnected:(launcher.isConnected&&launcher.parentElement===document.documentElement&&launcher.tagName==='BUTTON'&&launcher.getAttribute('aria-label')==='آخر محفوظاتي');
-  const valid=launcherValid&&frame.isConnected&&frame.parentElement===document.documentElement&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid;
-  if(!valid)redirect();
+  // The iframe is only the carrier for AQX's three protected elements.
+  // Do not inspect publisher page, save button, saved-items loading, or styles.
+  if(integrityArmed&&!frame.isConnected)redirect();
  }
  const watch=(target,options)=>{if(!target)return null;const observer=new MutationObserver(intact);observer.observe(target,options);return observer};
  const rootObserver=watch(document.documentElement,{childList:true});
- const frameObserver=watch(frame,{attributes:true,attributeFilter:['src','style','title','allow','referrerpolicy','width','height','data-aqx-favorites-frame']});
+
  // Do not observe the loader's parent: it may be BODY and receive unrelated
  // publisher widgets during startup. Those normal insertions are not tampering.
  frame.addEventListener('load',()=>{integrityArmed=true;intact()},{once:true});

@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const ORIGIN='https://favorites.alqurmanix.com';
-const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=8';
+const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=9';
 const loader=document.currentScript;
 if(window.__AQX_FAVORITES_FLOATING_V1__)return;
 window.__AQX_FAVORITES_FLOATING_V1__=true;

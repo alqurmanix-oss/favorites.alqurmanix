@@ -115,13 +115,18 @@ function mountAd(box){
  if(box.querySelector('#ad-block'))return;
  const wrap=document.createElement('div');
  wrap.id='ad-block';
- wrap.style.cssText='width:320px;height:250px;max-width:100%;margin:10px auto;overflow:hidden;';
+ wrap.style.cssText='display:flex;justify-content:center;align-items:center;width:320px;height:250px;max-width:100%;margin:10px auto;padding:0;border-bottom:1px solid #f0edf5;overflow:hidden;';
+ const inner=document.createElement('div');
+ inner.id='aqx-ad-inner';
+ inner.style.cssText='width:100%;height:100%;min-width:0;overflow:hidden;';
+ wrap.appendChild(inner);
  box.appendChild(wrap);
  const script=document.createElement('script');
  script.async=true;
  script.src='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js';
  script.setAttribute('data-placement-key','aqx_general_ad_slot_320x250');
- wrap.appendChild(script);
+ script.setAttribute('data-target','#aqx-ad-inner');
+ inner.appendChild(script);
  const brandNode=$('aqxBrand');
  const brandAnchor=brandNode&&brandNode.querySelector('a.brand-link');
  const head=brandNode&&brandNode.parentElement;
@@ -130,11 +135,11 @@ function mountAd(box){
   const currentBrand=$('aqxBrand');
   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
   const currentAd=$('ad-block');
+  const currentInner=$('aqx-ad-inner');
   const brandValid=currentBrand===brandNode&&currentBrand.parentElement===head&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
-  // The ad provider owns the contents of #ad-block and may add, replace,
-  // or remove its own runtime nodes. Protect the slot itself and the
-  // configured loader, without observing mutations inside the provider area.
-  const adValid=currentAd===wrap&&wrap.parentElement===box&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250';
+  // Protect the fixed 320x250 slot. The ad runtime is isolated in the
+  // inner target and may freely change its own display/style/children.
+  const adValid=currentAd===wrap&&wrap.parentElement===box&&currentInner===inner&&inner.parentElement===wrap&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.overflow==='hidden';
   if(!brandValid||!adValid)signalViolation();
  };
  integrityCheck=verify;
@@ -144,14 +149,12 @@ function mountAd(box){
   observer.observe(target,options);
   integrityObservers.push(observer);
  };
- // Observe only the two protected UI regions and their own configuration.
- // Never observe the document or the ad provider's internal DOM.
+ // Never watch the ad runtime's inner target or its loader mutations.
  observe(box,{childList:true});
  observe(head,{childList:true});
  observe(brandNode,{childList:true,subtree:true,characterData:true});
  observe(brandAnchor,{attributes:true,attributeFilter:['href']});
- observe(wrap,{attributes:true,attributeFilter:['style']});
- observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
+ observe(wrap,{childList:true});
  verify();
 }
 async function loadRecent(){

@@ -45,7 +45,7 @@ function mount(){
  const frameObserver=watch(frame,{attributes:true,attributeFilter:['src','style','title','allow','referrerpolicy','width','height','data-aqx-favorites-frame']});
  // Do not observe the loader's parent: it may be BODY and receive unrelated
  // publisher widgets during startup. Those normal insertions are not tampering.
- frame.addEventListener('load',()=>{setTimeout(()=>{integrityArmed=true;intact()},1200)},{once:true});
+ frame.addEventListener('load',()=>{integrityArmed=true;intact()},{once:true});
  // Root and frame observers detect removal or attribute changes without polling.
  function onMessage(event){
   if(event.origin!==ORIGIN||event.source!==frame.contentWindow)return;

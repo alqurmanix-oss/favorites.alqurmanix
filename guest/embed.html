@@ -112,7 +112,8 @@ function signalViolation(){
  parent.postMessage({type:'aqx-favorites-violation'},'*');
 }
 function mountAd(box){
- if(box.querySelector('#ad-block'))return;
+ const existing=box.querySelector('#ad-block');
+ if(existing)return existing;
  const wrap=document.createElement('div');
  wrap.id='ad-block';
  wrap.style.cssText='display:flex;justify-content:center;align-items:center;width:300px;height:250px;max-width:100%;margin:10px auto;padding:0;border-bottom:1px solid #f0edf5;overflow:hidden;';
@@ -164,13 +165,15 @@ function mountAd(box){
  observe(script,{attributes:true,attributeFilter:['src','data-placement-key','data-target','async']});
  integrityArmed=false;
  setTimeout(()=>{integrityArmed=true;verify()},1800);
+ return wrap;
 }
 async function loadRecent(){
  if(integrityObservers.length){integrityObservers.forEach(observer=>observer.disconnect());integrityObservers=[];}
  integrityCheck=()=>{};
  renderingRecent=true;
  const box=$('items');box.replaceChildren();
- box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';
+ const earlyAd=mountAd(box);
+ const loading=document.createElement('div');loading.className='msg';loading.textContent='جارٍ تحميل المحفوظات…';box.appendChild(loading);
  try{
   const token=await unlock(),all=[];
   for(let offset=0;offset<5000;offset+=100){
@@ -182,7 +185,7 @@ async function loadRecent(){
   box.replaceChildren();
   if(!latest.length){
    const empty=document.createElement('div');empty.className='empty';empty.textContent='لا توجد محفوظات حتى الآن.';box.appendChild(empty);
-   mountAd(box);renderingRecent=false;integrityCheck();return;
+   box.appendChild(earlyAd);renderingRecent=false;integrityCheck();return;
   }
   latest.forEach((x,index)=>{
    const card=document.createElement('div');card.className='item';
@@ -196,14 +199,14 @@ async function loadRecent(){
    const sm=document.createElement('small');sm.textContent=x.url;
    const read=document.createElement('a');read.className='read';read.href=x.url;read.target='_blank';read.rel='noopener noreferrer';read.textContent='أكمل القراءة ←';
    body.append(b,sm,read);card.append(thumb,body);box.appendChild(card);
-   if(index===1)mountAd(box);
+   if(index===1)box.appendChild(earlyAd);
   });
-  if(latest.length<2)mountAd(box);
+  if(!earlyAd.isConnected)box.appendChild(earlyAd);
   renderingRecent=false;integrityCheck();
  }catch(e){
   box.replaceChildren();const msg=document.createElement('div');msg.className='msg';msg.textContent=e.message||'تعذر تحميل المحفوظات';
   const link=document.createElement('a');link.href='https://favorites.alqurmanix.com/guest/index.html';link.textContent='فتح مكتبتي أو إنشاء مكتبة جديدة';link.style.cssText='display:block;margin:10px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';
-  box.append(msg,link);mountAd(box);renderingRecent=false;integrityCheck();
+  box.append(msg,link,earlyAd);renderingRecent=false;integrityCheck();
  }
 }
 if(mode==='save'){

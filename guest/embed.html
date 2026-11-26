@@ -133,37 +133,27 @@ function mountAd(box){
   if(renderingRecent||!integrityArmed)return;
   const currentBrand=$('aqxBrand');
   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
-  const currentAd=$('ad-block');
-  const currentInner=$('aqx-ad-inner');
-  // Protect the fixed 300x250 slot. The ad runtime is isolated in the
-  // inner target and may freely change its own display/style/children.
-  const panel=$('panel');
-  const brandValid=currentBrand===brandNode&&brandNode.isConnected&&currentBrand.parentElement===head&&head.parentElement===panel&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.isConnected&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
-  // Keep the ad slot and its loader intact, while deliberately leaving the
-  // ad engine's inner DOM/style mutations unobserved.
-  const adValid=box===$('items')&&box.isConnected&&box.parentElement===panel&&currentAd===wrap&&wrap.isConnected&&wrap.parentElement===box&&currentInner===inner&&inner.isConnected&&inner.parentElement===wrap&&script.isConnected&&script.parentElement===inner&&document.querySelectorAll('#ad-block').length===1&&wrap.id==='ad-block'&&wrap.className===''&&wrap.style.width==='300px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250'&&script.getAttribute('data-target')==='#aqx-ad-inner'&&script.async===true;
-  const floatValid=floatNode===$('float')&&floatNode.isConnected&&floatNode.parentElement===recentWrap&&floatNode.id==='float'&&floatNode.textContent.trim()==='♡';
+  const brandValid=currentBrand===brandNode&&brandNode.isConnected&&brandNode.parentElement===head&&
+    currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.isConnected&&brandAnchor.parentElement===brandNode;
+  const adValid=$('ad-block')===wrap&&wrap.isConnected&&wrap.parentElement===box&&
+    $('aqx-ad-inner')===inner&&inner.isConnected&&inner.parentElement===wrap;
+  const floatValid=$('float')===floatNode&&floatNode.isConnected&&floatNode.parentElement===recentWrap;
+  // Redirect only when one of the three AQX-owned elements is actually removed.
+  // Attribute/style changes, ad runtime activity, and all unrelated page activity are ignored.
   if(!brandValid||!adValid||!floatValid)signalViolation();
  };
- integrityCheck=verify;
- const observe=(target,options)=>{
+ const observe=(target)=>{
   if(!target)return;
   const observer=new MutationObserver(verify);
-  observer.observe(target,options);
+  observer.observe(target,{childList:true,subtree:true});
   integrityObservers.push(observer);
  };
- // Watch only AQX-owned structural nodes; never inspect ad-engine internals.
- observe(recentWrap,{childList:true});
- observe(floatNode,{attributes:true,attributeFilter:['id','class','style','hidden','aria-label','title'],childList:true,characterData:true,subtree:true});
- observe(box,{childList:true});
- observe($('panel'),{childList:true});
- observe(head,{childList:true});
- observe(brandNode,{childList:true,subtree:true,characterData:true});
- observe(brandAnchor,{attributes:true,attributeFilter:['href','target','rel','style','class','hidden']});
- observe(brandNode,{attributes:true,attributeFilter:['style','class','hidden']});
- observe(wrap,{childList:true});
- observe(wrap,{attributes:true,attributeFilter:['style']});
- observe(script,{attributes:true,attributeFilter:['src','data-placement-key','data-target','async']});
+ // Observe only the containers needed to detect removal of the three protected nodes.
+ observe(recentWrap);
+ observe(box);
+ observe($('panel'));
+ observe(head);
+ observe(brandNode);
  integrityArmed=true;
  return wrap;
 }

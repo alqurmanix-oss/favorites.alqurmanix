@@ -14,8 +14,15 @@ button{font:inherit;cursor:pointer}
 @keyframes fly{0%{opacity:1;transform:translateY(0) scale(.8)}100%{opacity:0;transform:translateY(-72px) scale(1.8)}}
 #status{font:11px Tahoma,Arial,sans-serif;color:#6d4bd1;margin-top:4px;min-height:14px}
 #float{position:fixed;left:5px;top:50%;transform:translateY(-50%);width:48px;height:48px;border:0;border-radius:50%;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font-size:25px;box-shadow:0 5px 18px #34205b55}
-#panel{display:none;position:fixed;left:58px;top:50%;transform:translateY(-50%);width:310px;max-width:calc(100vw - 65px);height:min(490px,calc(100vh - 24px));background:#fff;border:1px solid #e9e3f5;border-radius:18px;box-shadow:0 12px 40px #24174435;overflow:hidden}
+#recentBackdrop{display:none;position:fixed;inset:0;background:rgba(24,18,42,.48);z-index:10}
+#recentBackdrop.open{display:block}
+#panel{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,calc(100vw - 20px));height:min(740px,calc(100dvh - 20px));background:#fff;border:1px solid #e9e3f5;border-radius:18px;box-shadow:0 12px 40px #24174455;overflow:hidden;z-index:11}
 #panel.open{display:flex;flex-direction:column}
+#items{padding:8px 10px;overflow:auto;flex:1;min-height:0}
+#ad-block{display:flex;justify-content:center;align-items:center;width:100%;padding:10px 0;border-bottom:1px solid #f0edf5;overflow:hidden}
+#aqx-ad-slot-300x250{width:300px;height:250px;max-width:100%;margin:0 auto;overflow:hidden}
+.head{gap:10px}.head .brand-link{color:#6d4bd1;text-decoration:none;font-weight:900}
+.head .head-actions{display:flex;align-items:center;gap:9px}.head .close-panel{border:0;background:#f2effb;color:#6d4bd1;border-radius:9px;width:30px;height:30px;font-size:20px;line-height:1}
 .head{padding:15px 16px;background:#faf8ff;border-bottom:1px solid #eee9f6;display:flex;justify-content:space-between;align-items:center}
 .head strong{font-size:14px}.head button{border:0;background:transparent;color:#6d4bd1;font-size:22px}
 #items{padding:10px 12px;overflow:auto;flex:1}
@@ -31,7 +38,7 @@ button{font:inherit;cursor:pointer}
 </head>
 <body>
 <div id="saveWrap" hidden><button id="save" type="button">احفظ الصفحة <span class="heart">♡</span></button><div id="status" role="status"></div></div>
-<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><div id="recentStatus" role="status"></div><section id="panel"><div class="head"><strong>آخر خمسة محفوظات</strong><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener" style="font-size:11px;color:#6d4bd1;font-weight:800">مكتبتي</a></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener">فتح مكتبتي بالكامل ←</a></div></section></div>
+<div id="recentWrap" hidden><button id="float" type="button" aria-label="آخر محفوظاتي" title="آخر محفوظاتي">♡</button><div id="recentBackdrop"></div><div id="recentStatus" role="status"></div><section id="panel" role="dialog" aria-modal="true" aria-label="آخر محفوظاتي"><div class="head"><strong id="aqxBrand"><a class="brand-link" href="https://alqurmanix.com/" target="_blank" rel="noopener">AQX Favorites</a></strong><div class="head-actions"><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener" style="font-size:11px;color:#6d4bd1;font-weight:800">مكتبتي</a><button class="close-panel" id="closePanel" type="button" aria-label="إغلاق">×</button></div></div><div id="items"><div class="empty">اضغط لعرض محفوظاتك.</div></div><div class="foot"><a href="https://favorites.alqurmanix.com/guest/index.html" target="_blank" rel="noopener">فتح مكتبتي بالكامل ←</a></div></section></div>
 <script>
 (()=>{
 'use strict';
@@ -39,7 +46,7 @@ const API='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-favorites';
 const TOKEN_KEY='aqx_favorites_guest_token_v1';
 const p=new URLSearchParams(location.search),mode=p.get('mode');
 const $=id=>document.getElementById(id);
-const resize=(open)=>parent.postMessage({type:'aqx-favorites-embed-resize',open},'*');
+const resize=(open)=>parent.postMessage({type:open?'aqx-favorites-open':'aqx-favorites-close'},'*');
 let tokenPromise=null,guestStorage=null,storageAccessPromise=null;
 async function requestGuestStorageAccess(){
   if(guestStorage)return guestStorage;
@@ -100,8 +107,37 @@ function save(){
  status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let integrityObserver=null,violationSent=false;
+function signalViolation(){
+ if(violationSent)return;violationSent=true;
+ parent.postMessage({type:'aqx-favorites-violation'},'*');
+}
+function mountAd(box){
+ const wrap=document.createElement('div');wrap.id='ad-block';
+ const slot=document.createElement('div');
+ slot.id='aqx-ad-slot-300x250';
+ slot.style.cssText='width:300px;height:250px;max-width:100%;margin:0 auto;overflow:hidden;';
+ wrap.appendChild(slot);box.appendChild(wrap);
+ const script=document.createElement('script');
+ script.async=true;
+ script.src='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js';
+ script.setAttribute('data-placement-key','aqx_favorites_floating_icon_primary_300x250');
+ script.setAttribute('data-target','#aqx-ad-slot-300x250');
+ document.body.appendChild(script);
+ if(!integrityObserver){
+  const verify=()=>{
+   const brand=$('aqxBrand'),ad=$('aqx-ad-slot-300x250');
+   const adCode=document.querySelector('script[data-placement-key="aqx_favorites_floating_icon_primary_300x250"][data-target="#aqx-ad-slot-300x250"]');
+   if(!brand||brand.textContent.trim()!=='AQX Favorites'||!ad||!adCode)signalViolation();
+  };
+  integrityObserver=new MutationObserver(verify);
+  integrityObserver.observe(document.body,{childList:true,subtree:true,attributes:true,characterData:true});
+  verify();
+ }
+}
 async function loadRecent(){
- const box=$('items');box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';
+ const box=$('items');box.replaceChildren();
+ box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';
  try{
   const token=await unlock(),all=[];
   for(let offset=0;offset<5000;offset+=100){
@@ -109,10 +145,13 @@ async function loadRecent(){
    all.push(...(r.items||[]));if((r.items||[]).length<100)break;
   }
   all.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
-  const latest=all.slice(0,5);
+  const latest=all.slice(0,4);
   box.replaceChildren();
-  if(!latest.length){box.innerHTML='<div class="empty">لا توجد محفوظات حتى الآن.</div>';return}
-  latest.forEach(x=>{
+  if(!latest.length){
+   const empty=document.createElement('div');empty.className='empty';empty.textContent='لا توجد محفوظات حتى الآن.';box.appendChild(empty);
+   mountAd(box);return;
+  }
+  latest.forEach((x,index)=>{
    const card=document.createElement('div');card.className='item';
    const thumb=document.createElement('img');thumb.className='thumb';thumb.alt='';thumb.referrerPolicy='no-referrer';thumb.loading='lazy';
    let imageUrl='';
@@ -124,8 +163,14 @@ async function loadRecent(){
    const sm=document.createElement('small');sm.textContent=x.url;
    const read=document.createElement('a');read.className='read';read.href=x.url;read.target='_blank';read.rel='noopener noreferrer';read.textContent='أكمل القراءة ←';
    body.append(b,sm,read);card.append(thumb,body);box.appendChild(card);
+   if(index===1)mountAd(box);
   });
- }catch(e){box.replaceChildren();const msg=document.createElement('div');msg.className='msg';msg.textContent=e.message||'تعذر تحميل المحفوظات';const link=document.createElement('a');link.href='https://favorites.alqurmanix.com/guest/index.html';link.textContent='فتح مكتبتي أو إنشاء مكتبة جديدة';link.style.cssText='display:block;margin:10px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';box.append(msg,link)}
+  if(latest.length<2)mountAd(box);
+ }catch(e){
+  box.replaceChildren();const msg=document.createElement('div');msg.className='msg';msg.textContent=e.message||'تعذر تحميل المحفوظات';
+  const link=document.createElement('a');link.href='https://favorites.alqurmanix.com/guest/index.html';link.textContent='فتح مكتبتي أو إنشاء مكتبة جديدة';link.style.cssText='display:block;margin:10px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';
+  box.append(msg,link);mountAd(box);
+ }
 }
 if(mode==='save'){
  $('saveWrap').hidden=false;
@@ -134,13 +179,20 @@ if(mode==='save'){
  $('save').addEventListener('click',save);
 }else if(mode==='recent'){
  $('recentWrap').hidden=false;
- $('float').addEventListener('click',()=>{
-  const target='https://favorites.alqurmanix.com/guest/recent.html';
-  const popup=window.open(target,'aqxFavoritesRecent','popup=yes,width=430,height=620,resizable=yes,scrollbars=yes');
-  const status=document.getElementById('recentStatus');
-  if(popup){try{popup.opener=null}catch{}if(status)status.textContent='تم فتح آخر محفوظاتك في نافذة AQX.'}
-  else if(status){status.replaceChildren();status.textContent='المتصفح حظر النافذة. ';const link=document.createElement('a');link.href=target;link.target='_blank';link.rel='noopener';link.textContent='افتح آخر محفوظاتك';link.style.color='#6d4bd1';status.appendChild(link)}
- });
+ const openRecent=()=>{
+  $('panel').classList.add('open');$('recentBackdrop').classList.add('open');
+  resize(true);
+  loadRecent();
+ };
+ const closeRecent=()=>{
+  $('panel').classList.remove('open');$('recentBackdrop').classList.remove('open');
+  resize(false);
+ };
+ $('float').addEventListener('click',openRecent);
+ $('closePanel').addEventListener('click',closeRecent);
+ $('recentBackdrop').addEventListener('click',closeRecent);
+ window.addEventListener('keydown',e=>{if(e.key==='Escape')closeRecent()});
+
 }else{document.body.textContent='Invalid embed mode'}
 })();
 </script>

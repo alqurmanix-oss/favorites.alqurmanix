@@ -139,7 +139,7 @@ function mountAd(box){
   const brandValid=currentBrand===brandNode&&currentBrand.parentElement===head&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
   // Protect the fixed 320x250 slot. The ad runtime is isolated in the
   // inner target and may freely change its own display/style/children.
-  const adValid=currentAd===wrap&&wrap.parentElement===box&&currentInner===inner&&inner.parentElement===wrap&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.overflow==='hidden';
+  const adValid=currentAd===wrap&&wrap.parentElement===box&&currentInner===inner&&inner.parentElement===wrap&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250';
   if(!brandValid||!adValid)signalViolation();
  };
  integrityCheck=verify;
@@ -155,6 +155,8 @@ function mountAd(box){
  observe(brandNode,{childList:true,subtree:true,characterData:true});
  observe(brandAnchor,{attributes:true,attributeFilter:['href']});
  observe(wrap,{childList:true});
+ observe(wrap,{attributes:true,attributeFilter:['style']});
+ observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
  verify();
 }
 async function loadRecent(){

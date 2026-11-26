@@ -19,11 +19,11 @@ function mount(){
  frame.dataset.aqxFavoritesFrame='1';
  frame.style.cssText=compact;
  document.body.appendChild(frame);
- let opened=false,redirecting=false,watchdog=null;
+ let opened=false,redirecting=false,watchdog=null,integrityArmed=false;
  const loaderParent=loader&&loader.parentNode;
  const redirect=()=>{if(redirecting)return;redirecting=true;if(watchdog)clearInterval(watchdog);window.location.replace(HOME)};
  function intact(){
-  if(redirecting)return;
+  if(redirecting||!integrityArmed)return;
   const s=frame.style;
   // Validate only the inline properties owned by AQX. Computed-style checks
   // are intentionally excluded: publisher CSS can transiently affect them
@@ -36,11 +36,11 @@ function mount(){
  const bodyObserver=watch(document.body,{childList:true});
  const rootObserver=watch(document.documentElement,{childList:true});
  const frameObserver=watch(frame,{attributes:true,attributeFilter:['src','style','title','allow','referrerpolicy','width','height','data-aqx-favorites-frame']});
- const loaderObserver=watch(loaderParent,{childList:true});
- intact();
- // MutationObserver provides immediate detection; this low-frequency check
- // is a backup for DOM/CSS interference that does not produce observed mutations.
- watchdog=setInterval(intact,1000);
+ // Do not observe the loader's parent: it may be BODY and receive unrelated
+ // publisher widgets during startup. Those normal insertions are not tampering.
+ frame.addEventListener('load',()=>{setTimeout(()=>{integrityArmed=true;intact()},1200)},{once:true});
+ // MutationObserver detects frame removal/attribute changes; this is a backup.
+ watchdog=setInterval(intact,1500);
  function onMessage(event){
   if(event.origin!==ORIGIN||event.source!==frame.contentWindow)return;
   const type=event.data&&event.data.type;
@@ -51,7 +51,7 @@ function mount(){
  window.addEventListener('message',onMessage);
  // Redirect is triggered only by an explicit integrity violation
  // reported by the embedded widget for the required AQX brand/ad components.
- window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[bodyObserver,rootObserver,frameObserver,loaderObserver].forEach(o=>o&&o.disconnect())},{once:true});
+ window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[bodyObserver,rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();

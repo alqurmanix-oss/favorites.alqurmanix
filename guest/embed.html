@@ -160,13 +160,9 @@ async function loadRecent(){
  const earlyAd=mountAd(box);
  const loading=document.createElement('div');loading.className='msg';loading.textContent='جارٍ تحميل المحفوظات…';box.appendChild(loading);
  try{
-  const token=await unlock(),all=[];
-  for(let offset=0;offset<5000;offset+=100){
-   const r=await api('/items?limit=100&offset='+offset,token);
-   all.push(...(r.items||[]));if((r.items||[]).length<100)break;
-  }
-  all.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
-  const latest=all.slice(0,4);
+  const token=await unlock();
+  const r=await api('/items?limit=4&offset=0&sort=recent',token);
+  const latest=(r.items||[]).slice(0,4);
   box.replaceChildren();
   if(!latest.length){
    const empty=document.createElement('div');empty.className='empty';empty.textContent='لا توجد محفوظات حتى الآن.';box.appendChild(empty);

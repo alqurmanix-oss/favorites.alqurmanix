@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const ORIGIN='https://favorites.alqurmanix.com';
-const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=1';
+const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=2';
 const LOADER_URL=ORIGIN+'/guest/floating-widget.js?v=1';
 const HOME='https://alqurmanix.com/';
 const loader=document.currentScript;

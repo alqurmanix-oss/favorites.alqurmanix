@@ -135,20 +135,19 @@ function mountAd(box){
     currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.isConnected&&brandAnchor.parentElement===brandNode;
   const adValid=$('ad-block')===wrap&&wrap.isConnected&&wrap.parentElement===box&&
     $('aqx-ad-inner')===inner&&inner.isConnected&&inner.parentElement===wrap;
-  // Redirect only when one of the three AQX-owned elements is actually removed.
-  // Attribute/style changes, ad runtime activity, and all unrelated page activity are ignored.
+  // Redirect only when the AQX brand or AQX ad container is removed.
+  // The floating icon, styles, ad runtime content, and unrelated DOM changes are ignored.
   if(!brandValid||!adValid)signalViolation();
  };
  const observe=(target)=>{
   if(!target)return;
   const observer=new MutationObserver(verify);
-  observer.observe(target,{childList:true,subtree:true});
+  observer.observe(target,{childList:true});
   integrityObservers.push(observer);
  };
- // Observe only the containers needed to detect removal of the three protected nodes.
- observe(recentWrap);
+ // Observe only direct child changes around the AQX ad and brand nodes.
  observe(box);
- observe($('panel'));
+ observe(wrap);
  observe(head);
  observe(brandNode);
  integrityArmed=true;
@@ -156,8 +155,6 @@ function mountAd(box){
  return wrap;
 }
 async function loadRecent(){
- if(integrityObservers.length){integrityObservers.forEach(observer=>observer.disconnect());integrityObservers=[];}
- integrityCheck=()=>{};
  renderingRecent=true;
  const box=$('items');box.replaceChildren();
  const earlyAd=mountAd(box);

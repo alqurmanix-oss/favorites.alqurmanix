@@ -16,21 +16,39 @@ function mount(){
  frame.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
  const compact='position:fixed;left:5px;top:50%;transform:translateY(-50%);width:60px;height:80px;border:0;z-index:2147483000;overflow:hidden;background:transparent;';
  const expanded='position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;transform:none;border:0;z-index:2147483000;overflow:hidden;background:transparent;';
+ frame.dataset.aqxFavoritesFrame='1';
  frame.style.cssText=compact;
  document.body.appendChild(frame);
- let opened=false,redirecting=false;
- const redirect=()=>{if(redirecting)return;redirecting=true;window.location.replace(HOME)};
+ let opened=false,redirecting=false,watchdog=null;
+ const loaderParent=loader&&loader.parentNode;
+ const redirect=()=>{if(redirecting)return;redirecting=true;if(watchdog)clearInterval(watchdog);window.location.replace(HOME)};
+ function intact(){
+  if(redirecting)return;
+  const expected=opened?expanded:compact;
+  const s=frame.style,cs=getComputedStyle(frame);
+  const valid=!!loader&&loader.isConnected&&loader.parentNode===loaderParent&&frame.isConnected&&frame.parentElement===document.body&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&s.cssText===expected&&cs.position==='fixed'&&cs.display!=='none'&&cs.visibility!=='hidden'&&cs.visibility!=='collapse'&&Number(cs.opacity)>0&&cs.zIndex==='2147483000'&&cs.overflow==='hidden';
+  if(!valid)redirect();
+ }
+ const watch=(target,options)=>{if(!target)return null;const observer=new MutationObserver(intact);observer.observe(target,options);return observer};
+ const bodyObserver=watch(document.body,{childList:true});
+ const rootObserver=watch(document.documentElement,{childList:true});
+ const frameObserver=watch(frame,{attributes:true,attributeFilter:['src','style','title','allow','referrerpolicy','width','height','data-aqx-favorites-frame']});
+ const loaderObserver=watch(loaderParent,{childList:true});
+ intact();
+ // MutationObserver provides immediate detection; this low-frequency check
+ // is a backup for DOM/CSS interference that does not produce observed mutations.
+ watchdog=setInterval(intact,1000);
  function onMessage(event){
   if(event.origin!==ORIGIN||event.source!==frame.contentWindow)return;
   const type=event.data&&event.data.type;
-  if(type==='aqx-favorites-open'){opened=true;frame.style.cssText=expanded;}
-  else if(type==='aqx-favorites-close'){opened=false;frame.style.cssText=compact;}
+  if(type==='aqx-favorites-open'){opened=true;frame.style.cssText=expanded;intact();}
+  else if(type==='aqx-favorites-close'){opened=false;frame.style.cssText=compact;intact();}
   else if(type==='aqx-favorites-violation'){redirect();}
  }
  window.addEventListener('message',onMessage);
  // Redirect is triggered only by an explicit integrity violation
  // reported by the embedded widget for the required AQX brand/ad components.
- window.addEventListener('pagehide',()=>window.removeEventListener('message',onMessage),{once:true});
+ window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[bodyObserver,rootObserver,frameObserver,loaderObserver].forEach(o=>o&&o.disconnect())},{once:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();

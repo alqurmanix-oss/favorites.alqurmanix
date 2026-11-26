@@ -107,7 +107,7 @@ function save(){
  status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let integrityObserver=null,violationSent=false;
+let integrityObserver=null,violationSent=false,renderingRecent=false,integrityCheck=()=>{};
 function signalViolation(){
  if(violationSent)return;violationSent=true;
  parent.postMessage({type:'aqx-favorites-violation'},'*');
@@ -126,16 +126,19 @@ function mountAd(box){
  document.body.appendChild(script);
  if(!integrityObserver){
   const verify=()=>{
+   if(renderingRecent)return;
    const brand=$('aqxBrand'),ad=$('aqx-ad-slot-300x250');
    const adCode=document.querySelector('script[data-placement-key="aqx_favorites_floating_icon_primary_300x250"][data-target="#aqx-ad-slot-300x250"]');
    if(!brand||brand.textContent.trim()!=='AQX Favorites'||!ad||!adCode)signalViolation();
   };
+  integrityCheck=verify;
   integrityObserver=new MutationObserver(verify);
   integrityObserver.observe(document.body,{childList:true,subtree:true,attributes:true,characterData:true});
   verify();
  }
 }
 async function loadRecent(){
+ renderingRecent=true;
  const box=$('items');box.replaceChildren();
  box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';
  try{
@@ -149,7 +152,7 @@ async function loadRecent(){
   box.replaceChildren();
   if(!latest.length){
    const empty=document.createElement('div');empty.className='empty';empty.textContent='لا توجد محفوظات حتى الآن.';box.appendChild(empty);
-   mountAd(box);return;
+   mountAd(box);renderingRecent=false;integrityCheck();return;
   }
   latest.forEach((x,index)=>{
    const card=document.createElement('div');card.className='item';
@@ -166,10 +169,11 @@ async function loadRecent(){
    if(index===1)mountAd(box);
   });
   if(latest.length<2)mountAd(box);
+  renderingRecent=false;integrityCheck();
  }catch(e){
   box.replaceChildren();const msg=document.createElement('div');msg.className='msg';msg.textContent=e.message||'تعذر تحميل المحفوظات';
   const link=document.createElement('a');link.href='https://favorites.alqurmanix.com/guest/index.html';link.textContent='فتح مكتبتي أو إنشاء مكتبة جديدة';link.style.cssText='display:block;margin:10px auto;color:#6d4bd1;font-weight:800;text-decoration:underline;text-align:center';
-  box.append(msg,link);mountAd(box);
+  box.append(msg,link);mountAd(box);renderingRecent=false;integrityCheck();
  }
 }
 if(mode==='save'){

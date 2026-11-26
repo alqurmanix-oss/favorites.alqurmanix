@@ -137,7 +137,14 @@ function mountAd(box){
   };
   integrityCheck=verify;
   integrityObserver=new MutationObserver(verify);
-  integrityObserver.observe(document.body,{childList:true,subtree:true,attributes:true,characterData:true});
+  // Watch structural removal/replacement and text tampering only.
+  // Do not observe every attribute on the whole page: the third-party ad
+  // runtime legitimately changes attributes while initializing its iframe.
+  integrityObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
+  const brandAttributeObserver=new MutationObserver(verify);
+  brandAttributeObserver.observe(brandAnchor,{attributes:true,attributeFilter:['href']});
+  const adAttributeObserver=new MutationObserver(verify);
+  adAttributeObserver.observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
   verify();
  }
 }

@@ -1,8 +1,6 @@
 (()=>{'use strict';
 const ORIGIN='https://favorites.alqurmanix.com';
-const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=7';
-const LOADER_URL=ORIGIN+'/guest/floating-widget.js?v=1';
-const HOME='https://alqurmanix.com/';
+const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=8';
 const loader=document.currentScript;
 if(window.__AQX_FAVORITES_FLOATING_V1__)return;
 window.__AQX_FAVORITES_FLOATING_V1__=true;
@@ -18,13 +16,19 @@ function mount(){
  const compact='position:fixed;left:5px;top:50%;transform:translateY(-50%);width:60px;height:80px;border:0;z-index:2147483000;overflow:hidden;background:transparent;';
  const expanded='position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;transform:none;border:0;z-index:2147483000;overflow:hidden;background:transparent;';
  frame.dataset.aqxFavoritesFrame='1';
- frame.style.cssText=compact;
+ frame.style.cssText=compact+'visibility:hidden;';
+ const launcher=document.createElement('button');
+ launcher.type='button';launcher.textContent='♡';launcher.setAttribute('aria-label','آخر محفوظاتي');launcher.title='آخر محفوظاتي';
+ launcher.style.cssText='position:fixed;left:11px;top:calc(50% - 24px);width:48px;height:48px;border:0;border-radius:50%;z-index:2147483001;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font:28px Tahoma,Arial,sans-serif;box-shadow:0 5px 18px #34205b55;cursor:pointer;';
+ document.documentElement.appendChild(launcher);
  document.documentElement.appendChild(frame);
- let opened=false,redirecting=false,watchdog=null,integrityArmed=false;
+ let pendingOpen=false;
+ launcher.addEventListener('click',()=>{pendingOpen=true;if(frame.dataset.ready==='1'){frame.contentWindow.postMessage({type:'aqx-favorites-parent-open'},ORIGIN);pendingOpen=false;}});
+ frame.addEventListener('load',()=>{frame.dataset.ready='1';frame.style.visibility='visible';launcher.remove();if(pendingOpen){frame.contentWindow.postMessage({type:'aqx-favorites-parent-open'},ORIGIN);pendingOpen=false;}},{once:true});
+ let opened=false,integrityArmed=false;
  const loaderParent=loader&&loader.parentNode;
- const redirect=()=>{redirecting=false;if(watchdog)clearInterval(watchdog);};
  function intact(){
-  if(redirecting||!integrityArmed)return;
+  if(!integrityArmed)return;
   const s=frame.style;
   // Validate only the inline properties owned by AQX. Computed-style checks
   // are intentionally excluded: publisher CSS can transiently affect them
@@ -46,12 +50,9 @@ function mount(){
   const type=event.data&&event.data.type;
   if(type==='aqx-favorites-open'){opened=true;frame.style.cssText=expanded;intact();}
   else if(type==='aqx-favorites-close'){opened=false;frame.style.cssText=compact;intact();}
-  else if(type==='aqx-favorites-violation'){redirect();}
  }
  window.addEventListener('message',onMessage);
- // Redirect is triggered only by an explicit integrity violation
- // reported by the embedded widget for the required AQX brand/ad components.
- window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
+ window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);[rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
 }
 mount();
 })();

@@ -136,7 +136,6 @@ function mountAd(box){
   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
   const currentAd=$('ad-block');
   const currentInner=$('aqx-ad-inner');
-  const brandValid=currentBrand===brandNode&&currentBrand.parentElement===head&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandAnchor.getAttribute('target')==='_blank'&&brandAnchor.getAttribute('rel')==='noopener'&&brandNode.getAttribute('style')===null&&brandAnchor.getAttribute('style')===null&&!brandNode.hidden&&!brandAnchor.hidden&&brandAnchor.className==='brand-link'&&brandNode.children.length===1;
   // Protect the fixed 300x250 slot. The ad runtime is isolated in the
   // inner target and may freely change its own display/style/children.
   const panel=$('panel');

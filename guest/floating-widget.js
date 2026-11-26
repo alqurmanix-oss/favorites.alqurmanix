@@ -48,7 +48,7 @@ function mount(){
   else if(type==='aqx-favorites-close'){opened=false;frame.style.cssText=compact;intact();}
  }
  window.addEventListener('message',onMessage);
- window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);[rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
+ window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);[rootObserver].forEach(o=>o&&o.disconnect())},{once:true});
 }
 mount();
 })();

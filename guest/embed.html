@@ -106,7 +106,7 @@ function save(){
  status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let integrityObserver=null,violationSent=false,renderingRecent=false,integrityCheck=()=>{};
+let integrityObservers=[],violationSent=false,renderingRecent=false,integrityCheck=()=>{};
 function signalViolation(){
  if(violationSent)return;violationSent=true;
  parent.postMessage({type:'aqx-favorites-violation'},'*');
@@ -124,32 +124,38 @@ function mountAd(box){
  wrap.appendChild(script);
  const brandNode=$('aqxBrand');
  const brandAnchor=brandNode&&brandNode.querySelector('a.brand-link');
- if(!integrityObserver){
-  const verify=()=>{
-   if(renderingRecent)return;
-   const currentBrand=$('aqxBrand');
-   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
-   const currentAd=$('ad-block');
-   const adCode=currentAd&&currentAd.querySelector('script');
-   const brandValid=currentBrand===brandNode&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
-   const adValid=currentAd===wrap&&adCode===script&&script.parentElement===wrap&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250'&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&document.querySelectorAll('#ad-block').length===1;
-   if(!brandValid||!adValid)signalViolation();
-  };
-  integrityCheck=verify;
-  integrityObserver=new MutationObserver(verify);
-  // Watch structural removal/replacement and text tampering only.
-  // Do not observe every attribute on the whole page: the third-party ad
-  // runtime legitimately changes attributes while initializing its iframe.
-  integrityObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
-  const brandAttributeObserver=new MutationObserver(verify);
-  brandAttributeObserver.observe(brandAnchor,{attributes:true,attributeFilter:['href']});
-  const adAttributeObserver=new MutationObserver(verify);
-  adAttributeObserver.observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
-  verify();
- }
+ const head=brandNode&&brandNode.parentElement;
+ const verify=()=>{
+  if(renderingRecent)return;
+  const currentBrand=$('aqxBrand');
+  const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
+  const currentAd=$('ad-block');
+  const brandValid=currentBrand===brandNode&&currentBrand.parentElement===head&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
+  // The ad provider owns the contents of #ad-block and may add, replace,
+  // or remove its own runtime nodes. Protect the slot itself and the
+  // configured loader, without observing mutations inside the provider area.
+  const adValid=currentAd===wrap&&wrap.parentElement===box&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250';
+  if(!brandValid||!adValid)signalViolation();
+ };
+ integrityCheck=verify;
+ const observe=(target,options)=>{
+  if(!target)return;
+  const observer=new MutationObserver(verify);
+  observer.observe(target,options);
+  integrityObservers.push(observer);
+ };
+ // Observe only the two protected UI regions and their own configuration.
+ // Never observe the document or the ad provider's internal DOM.
+ observe(box,{childList:true});
+ observe(head,{childList:true});
+ observe(brandNode,{childList:true,subtree:true,characterData:true});
+ observe(brandAnchor,{attributes:true,attributeFilter:['href']});
+ observe(wrap,{attributes:true,attributeFilter:['style']});
+ observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
+ verify();
 }
 async function loadRecent(){
- if(integrityObserver){integrityObserver.disconnect();integrityObserver=null;}
+ if(integrityObservers.length){integrityObservers.forEach(observer=>observer.disconnect());integrityObservers=[];}
  integrityCheck=()=>{};
  renderingRecent=true;
  const box=$('items');box.replaceChildren();

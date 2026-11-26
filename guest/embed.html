@@ -164,8 +164,7 @@ function mountAd(box){
  observe(wrap,{childList:true});
  observe(wrap,{attributes:true,attributeFilter:['style']});
  observe(script,{attributes:true,attributeFilter:['src','data-placement-key','data-target','async']});
- integrityArmed=false;
- setTimeout(()=>{integrityArmed=true;verify()},1800);
+ integrityArmed=true;
  return wrap;
 }
 async function loadRecent(){

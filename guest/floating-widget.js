@@ -30,7 +30,10 @@ function mount(){
  window.addEventListener('message',onMessage);
  const observer=new MutationObserver(()=>{
   const loaderValid=!!loader&&loader.isConnected&&loader.getAttribute('src')===LOADER_URL;
-  const frameValid=frame.isConnected&&frame.getAttribute('src')===EMBED_URL&&frame.getAttribute('title')==='AQX Favorites - Recent'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&(frame.getAttribute('style')===compact||frame.getAttribute('style')===expanded);
+  const style=frame.style;
+  const compactStyle=style.position==='fixed'&&style.left==='5px'&&style.top==='50%'&&style.width==='60px'&&style.height==='80px'&&style.transform==='translateY(-50%)';
+  const expandedStyle=style.position==='fixed'&&style.inset==='0px'&&style.width==='100vw'&&style.transform==='none';
+  const frameValid=frame.isConnected&&frame.getAttribute('src')===EMBED_URL&&frame.getAttribute('title')==='AQX Favorites - Recent'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&(compactStyle||expandedStyle);
   if(!loaderValid||!frameValid){observer.disconnect();window.removeEventListener('message',onMessage);redirect();}
  });
  observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','title','width','height','allow','referrerpolicy','style']});

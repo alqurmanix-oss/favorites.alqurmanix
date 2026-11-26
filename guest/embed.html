@@ -112,6 +112,7 @@ function signalViolation(){
  parent.postMessage({type:'aqx-favorites-violation'},'*');
 }
 function mountAd(box){
+ if(box.querySelector('#ad-block'))return;
  const wrap=document.createElement('div');
  wrap.id='ad-block';
  wrap.style.cssText='width:320px;height:250px;max-width:100%;margin:10px auto;overflow:hidden;';
@@ -131,7 +132,7 @@ function mountAd(box){
    const currentAd=$('ad-block');
    const adCode=currentAd&&currentAd.querySelector('script');
    const brandValid=currentBrand===brandNode&&currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.textContent.trim()==='AQX Favorites'&&brandAnchor.getAttribute('href')==='https://alqurmanix.com/'&&brandNode.children.length===1;
-   const adValid=currentAd===wrap&&adCode===script&&script.parentElement===wrap&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250'&&wrap.getAttribute('style')==='width:320px;height:250px;max-width:100%;margin:10px auto;overflow:hidden;'&&document.querySelectorAll('#ad-block').length===1;
+   const adValid=currentAd===wrap&&adCode===script&&script.parentElement===wrap&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250'&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&document.querySelectorAll('#ad-block').length===1;
    if(!brandValid||!adValid)signalViolation();
   };
   integrityCheck=verify;

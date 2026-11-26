@@ -125,19 +125,14 @@ function mountAd(box){
  script.setAttribute('data-target','#aqx-ad-inner');
  inner.appendChild(script);
  const brandNode=$('aqxBrand');
- const brandAnchor=brandNode&&brandNode.querySelector('a.brand-link');
  const head=brandNode&&brandNode.parentElement;
  const verify=()=>{
   if(renderingRecent||!integrityArmed)return;
   const currentBrand=$('aqxBrand');
-  const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
-  const brandValid=currentBrand===brandNode&&brandNode.isConnected&&brandNode.parentElement===head&&
-    currentAnchor===brandAnchor&&!!brandAnchor&&brandAnchor.isConnected&&brandAnchor.parentElement===brandNode;
-  const adValid=$('ad-block')===wrap&&wrap.isConnected&&wrap.parentElement===box&&
-    $('aqx-ad-inner')===inner&&inner.isConnected&&inner.parentElement===wrap;
-  // Redirect only when the AQX brand or AQX ad container is removed.
-  // The floating icon, styles, ad runtime content, and unrelated DOM changes are ignored.
-  if(!brandValid||!adValid)signalViolation();
+  const brandPresent=!!currentBrand&&!!currentBrand.querySelector('a.brand-link');
+  const adPresent=!!$('ad-block')&&!!$('aqx-ad-inner');
+  // Presence only: no checks of the icon, styles, attributes, layout, or ad contents.
+  if(!brandPresent||!adPresent)signalViolation();
  };
  const observe=(target)=>{
   if(!target)return;
@@ -147,7 +142,6 @@ function mountAd(box){
  };
  // Observe only direct child changes around the AQX ad and brand nodes.
  observe(box);
- observe(wrap);
  observe(head);
  observe(brandNode);
  integrityArmed=true;
@@ -203,8 +197,7 @@ if(mode==='save'){
  const initialBrandAnchor=initialBrand&&initialBrand.querySelector('a.brand-link');
  const initialBrandHead=initialBrand&&initialBrand.parentElement;
  const checkBrand=()=>{
-  if(!initialBrand||!initialBrand.isConnected||initialBrand.parentElement!==initialBrandHead||
-     !initialBrandAnchor||!initialBrandAnchor.isConnected||initialBrandAnchor.parentElement!==initialBrand)
+  if(!initialBrand||!initialBrand.isConnected||!initialBrand.querySelector('a.brand-link'))
    signalViolation();
  };
  const brandObserver=new MutationObserver(checkBrand);

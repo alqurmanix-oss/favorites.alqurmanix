@@ -4,6 +4,7 @@ const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=8';
 const loader=document.currentScript;
 if(window.__AQX_FAVORITES_FLOATING_V1__)return;
 window.__AQX_FAVORITES_FLOATING_V1__=true;
+function redirect(){if(window.__AQX_FAVORITES_REDIRECTING__)return;window.__AQX_FAVORITES_REDIRECTING__=true;window.location.replace('https://alqurmanix.com/');}
 function mount(){
  if(!document.documentElement)return;
  const frame=document.createElement('iframe');
@@ -35,7 +36,8 @@ function mount(){
   // during initial layout and must never trigger a false-positive redirect.
   const styleValid=s.position==='fixed'&&s.width===(opened?'100vw':'60px')&&s.height===(opened?((typeof CSS!=='undefined'&&typeof CSS.supports==='function'&&CSS.supports('height','100dvh'))?'100dvh':'100vh'):'80px')&&s.transform===(opened?'none':'translateY(-50%)')&&s.zIndex==='2147483000'&&s.overflow==='hidden'&&s.borderWidth==='0px'&&(opened?(s.left==='0px'&&s.top==='0px'&&s.right==='0px'&&s.bottom==='0px'):(s.left==='5px'&&s.top==='50%'&&s.right===''&&s.bottom===''));
   const loaderValid=!loader||(loader.isConnected&&loader.parentNode===loaderParent);
-  const valid=loaderValid&&frame.isConnected&&frame.parentElement===document.documentElement&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid;
+  const launcherValid=frame.dataset.ready==='1'?!launcher.isConnected:(launcher.isConnected&&launcher.parentElement===document.documentElement&&launcher.tagName==='BUTTON'&&launcher.getAttribute('aria-label')==='آخر محفوظاتي');
+  const valid=launcherValid&&loaderValid&&frame.isConnected&&frame.parentElement===document.documentElement&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid;
   if(!valid)redirect();
  }
  const watch=(target,options)=>{if(!target)return null;const observer=new MutationObserver(intact);observer.observe(target,options);return observer};
@@ -48,7 +50,8 @@ function mount(){
  function onMessage(event){
   if(event.origin!==ORIGIN||event.source!==frame.contentWindow)return;
   const type=event.data&&event.data.type;
-  if(type==='aqx-favorites-open'){opened=true;frame.style.cssText=expanded;intact();}
+  if(type==='aqx-favorites-tamper'){redirect();}
+  else if(type==='aqx-favorites-open'){opened=true;frame.style.cssText=expanded;intact();}
   else if(type==='aqx-favorites-close'){opened=false;frame.style.cssText=compact;intact();}
  }
  window.addEventListener('message',onMessage);

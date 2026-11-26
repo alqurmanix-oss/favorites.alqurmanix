@@ -1714,8 +1714,10 @@ Deno.serve(async (req: Request) => {
       const includeDeleted = u.searchParams.get("include_deleted") === "true";
       const limit = Math.min(100, Math.max(1, Number(u.searchParams.get("limit") || 50)));
       const offset = Math.max(0, Number(u.searchParams.get("offset") || 0));
-      let q = db.from("aqx_favorites_items").select("*").eq("owner_type", o.owner_type).eq("owner_id", o.owner_id)
-        .order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+      let q = db.from("aqx_favorites_items").select("*").eq("owner_type", o.owner_type).eq("owner_id", o.owner_id);
+      if (u.searchParams.get("sort") === "recent") q = q.order("created_at", { ascending: false });
+      else q = q.order("is_pinned", { ascending: false }).order("created_at", { ascending: false });
+      q = q.range(offset, offset + limit - 1);
       if (!includeDeleted) q = q.is("deleted_at", null);
       if (u.searchParams.get("collection_id")) q = q.eq("collection_id", u.searchParams.get("collection_id"));
       if (u.searchParams.get("category_id")) q = q.eq("category_id", u.searchParams.get("category_id"));

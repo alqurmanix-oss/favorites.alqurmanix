@@ -21,7 +21,7 @@ function mount(){
  document.body.appendChild(frame);
  let opened=false,redirecting=false,watchdog=null,integrityArmed=false;
  const loaderParent=loader&&loader.parentNode;
- const redirect=()=>{if(redirecting)return;redirecting=true;if(watchdog)clearInterval(watchdog);window.location.replace(HOME)};
+ const redirect=()=>{redirecting=false;if(watchdog)clearInterval(watchdog);};
  function intact(){
   if(redirecting||!integrityArmed)return;
   const s=frame.style;

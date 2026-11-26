@@ -207,6 +207,19 @@ if(mode==='save'){
 }else if(mode==='recent'){
  $('recentWrap').hidden=false;
  const signalViolation=()=>{if(window.parent!==window)window.parent.postMessage({type:'aqx-favorites-tamper'},'*')};
+ // Protect the brand and floating icon from the moment the recent widget loads.
+ // This observer checks only these two AQX-owned nodes, regardless of other DOM activity.
+ const initialBrand=$('aqxBrand');
+ const initialBrandAnchor=initialBrand&&initialBrand.querySelector('a.brand-link');
+ const initialFloat=$('float');
+ const initialIntegrityCheck=()=>{
+  const brandPresent=!!initialBrand&&initialBrand.isConnected&&
+   initialBrand.querySelector('a.brand-link')===initialBrandAnchor&&!!initialBrandAnchor&&initialBrandAnchor.isConnected;
+  const floatPresent=!!initialFloat&&initialFloat.isConnected;
+  if(!brandPresent||!floatPresent)signalViolation();
+ };
+ const initialIntegrityObserver=new MutationObserver(initialIntegrityCheck);
+ initialIntegrityObserver.observe(document.body,{childList:true,subtree:true});
  const openRecent=()=>{
   $('panel').classList.add('open');$('recentBackdrop').classList.add('open');
   resize(true);

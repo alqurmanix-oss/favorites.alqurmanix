@@ -141,6 +141,8 @@ function mountAd(box){
  }
 }
 async function loadRecent(){
+ if(integrityObserver){integrityObserver.disconnect();integrityObserver=null;}
+ integrityCheck=()=>{};
  renderingRecent=true;
  const box=$('items');box.replaceChildren();
  box.innerHTML='<div class="msg">جارٍ تحميل المحفوظات…</div>';

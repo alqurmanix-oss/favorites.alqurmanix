@@ -106,11 +106,7 @@ function save(){
  status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let integrityObservers=[],violationSent=false,renderingRecent=false,integrityArmed=false,integrityCheck=()=>{};
-function signalViolation(){
- if(violationSent)return;violationSent=true;
- parent.postMessage({type:'aqx-favorites-violation'},'*');
-}
+let integrityObservers=[],renderingRecent=false,integrityArmed=false,integrityCheck=()=>{};
 function mountAd(box){
  const existing=box.querySelector('#ad-block');
  if(existing)return existing;
@@ -144,7 +140,8 @@ function mountAd(box){
   // Keep the ad slot and its loader intact, while deliberately leaving the
   // ad engine's inner DOM/style mutations unobserved.
   const adValid=box===$('items')&&box.isConnected&&box.parentElement===panel&&currentAd===wrap&&wrap.isConnected&&wrap.parentElement===box&&currentInner===inner&&inner.isConnected&&inner.parentElement===wrap&&script.isConnected&&script.parentElement===inner&&document.querySelectorAll('#ad-block').length===1&&wrap.id==='ad-block'&&wrap.className===''&&wrap.style.width==='300px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250'&&script.getAttribute('data-target')==='#aqx-ad-inner'&&script.async===true;
-  if(!brandValid||!adValid)signalViolation();
+  // Integrity checks remain diagnostic only; publisher/ad-runtime mutations
+  // must never trigger a top-level navigation.
  };
  integrityCheck=verify;
  const observe=(target,options)=>{

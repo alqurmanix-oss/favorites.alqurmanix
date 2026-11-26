@@ -1,7 +1,9 @@
 (()=>{'use strict';
 const ORIGIN='https://favorites.alqurmanix.com';
 const EMBED_URL=ORIGIN+'/guest/embed.html?mode=recent&v=1';
+const LOADER_URL=ORIGIN+'/guest/floating-widget.js?v=1';
 const HOME='https://alqurmanix.com/';
+const loader=document.currentScript;
 if(window.__AQX_FAVORITES_FLOATING_V1__)return;
 window.__AQX_FAVORITES_FLOATING_V1__=true;
 function mount(){
@@ -27,9 +29,11 @@ function mount(){
  }
  window.addEventListener('message',onMessage);
  const observer=new MutationObserver(()=>{
-  if(!frame.isConnected){observer.disconnect();window.removeEventListener('message',onMessage);redirect();}
+  const loaderValid=!!loader&&loader.isConnected&&loader.getAttribute('src')===LOADER_URL;
+  const frameValid=frame.isConnected&&frame.getAttribute('src')===EMBED_URL&&frame.getAttribute('title')==='AQX Favorites - Recent'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&(frame.getAttribute('style')===compact||frame.getAttribute('style')===expanded);
+  if(!loaderValid||!frameValid){observer.disconnect();window.removeEventListener('message',onMessage);redirect();}
  });
- observer.observe(document.documentElement,{childList:true,subtree:true});
+ observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src','title','width','height','allow','referrerpolicy','style']});
  window.addEventListener('pagehide',()=>{observer.disconnect();window.removeEventListener('message',onMessage)},{once:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();

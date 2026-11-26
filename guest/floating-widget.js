@@ -7,9 +7,10 @@ const loader=document.currentScript;
 if(window.__AQX_FAVORITES_FLOATING_V1__)return;
 window.__AQX_FAVORITES_FLOATING_V1__=true;
 function mount(){
- if(!document.body)return;
+ if(!document.documentElement)return;
  const frame=document.createElement('iframe');
  frame.src=EMBED_URL;
+ frame.loading='eager';
  frame.title='AQX Favorites - Recent';
  frame.width='60';frame.height='80';
  frame.setAttribute('allow','storage-access');
@@ -18,7 +19,7 @@ function mount(){
  const expanded='position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;transform:none;border:0;z-index:2147483000;overflow:hidden;background:transparent;';
  frame.dataset.aqxFavoritesFrame='1';
  frame.style.cssText=compact;
- document.body.appendChild(frame);
+ document.documentElement.appendChild(frame);
  let opened=false,redirecting=false,watchdog=null,integrityArmed=false;
  const loaderParent=loader&&loader.parentNode;
  const redirect=()=>{redirecting=false;if(watchdog)clearInterval(watchdog);};
@@ -30,18 +31,16 @@ function mount(){
   // during initial layout and must never trigger a false-positive redirect.
   const styleValid=s.position==='fixed'&&s.width===(opened?'100vw':'60px')&&s.height===(opened?((typeof CSS!=='undefined'&&typeof CSS.supports==='function'&&CSS.supports('height','100dvh'))?'100dvh':'100vh'):'80px')&&s.transform===(opened?'none':'translateY(-50%)')&&s.zIndex==='2147483000'&&s.overflow==='hidden'&&s.borderWidth==='0px'&&(opened?(s.left==='0px'&&s.top==='0px'&&s.right==='0px'&&s.bottom==='0px'):(s.left==='5px'&&s.top==='50%'&&s.right===''&&s.bottom===''));
   const loaderValid=!loader||(loader.isConnected&&loader.parentNode===loaderParent);
-  const valid=loaderValid&&frame.isConnected&&frame.parentElement===document.body&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid;
+  const valid=loaderValid&&frame.isConnected&&frame.parentElement===document.documentElement&&document.querySelectorAll('iframe[data-aqx-favorites-frame="1"]').length===1&&frame.getAttribute('data-aqx-favorites-frame')==='1'&&frame.getAttribute('src')===EMBED_URL&&frame.title==='AQX Favorites - Recent'&&frame.getAttribute('allow')==='storage-access'&&frame.getAttribute('referrerpolicy')==='strict-origin-when-cross-origin'&&frame.getAttribute('width')==='60'&&frame.getAttribute('height')==='80'&&styleValid;
   if(!valid)redirect();
  }
  const watch=(target,options)=>{if(!target)return null;const observer=new MutationObserver(intact);observer.observe(target,options);return observer};
- const bodyObserver=watch(document.body,{childList:true});
  const rootObserver=watch(document.documentElement,{childList:true});
  const frameObserver=watch(frame,{attributes:true,attributeFilter:['src','style','title','allow','referrerpolicy','width','height','data-aqx-favorites-frame']});
  // Do not observe the loader's parent: it may be BODY and receive unrelated
  // publisher widgets during startup. Those normal insertions are not tampering.
  frame.addEventListener('load',()=>{setTimeout(()=>{integrityArmed=true;intact()},1200)},{once:true});
- // MutationObserver detects frame removal/attribute changes; this is a backup.
- watchdog=setInterval(intact,1500);
+ // Root and frame observers detect removal or attribute changes without polling.
  function onMessage(event){
   if(event.origin!==ORIGIN||event.source!==frame.contentWindow)return;
   const type=event.data&&event.data.type;
@@ -52,7 +51,7 @@ function mount(){
  window.addEventListener('message',onMessage);
  // Redirect is triggered only by an explicit integrity violation
  // reported by the embedded widget for the required AQX brand/ad components.
- window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[bodyObserver,rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
+ window.addEventListener('pagehide',()=>{window.removeEventListener('message',onMessage);if(watchdog)clearInterval(watchdog);[rootObserver,frameObserver].forEach(o=>o&&o.disconnect())},{once:true});
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+mount();
 })();

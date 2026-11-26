@@ -13,7 +13,7 @@ button{font:inherit;cursor:pointer}
 .fly{position:fixed;pointer-events:none;z-index:9;animation:fly .85s ease-out forwards}
 @keyframes fly{0%{opacity:1;transform:translateY(0) scale(.8)}100%{opacity:0;transform:translateY(-72px) scale(1.8)}}
 #status{font:11px Tahoma,Arial,sans-serif;color:#6d4bd1;margin-top:4px;min-height:14px}
-#float{position:fixed;left:5px;top:50%;transform:translateY(-50%);width:48px;height:48px;border:0;border-radius:50%;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font-size:25px;box-shadow:0 5px 18px #34205b55}
+#float{position:fixed;left:6px;top:16px;transform:none;width:48px;height:48px;border:0;border-radius:50%;background:linear-gradient(135deg,#6d4bd1,#9277e6);color:#fff;font-size:25px;box-shadow:0 5px 18px #34205b55}
 #recentBackdrop{display:none;position:fixed;inset:0;background:rgba(24,18,42,.48);z-index:10}
 #recentBackdrop.open{display:block}
 #panel{display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,calc(100vw - 20px));height:min(740px,calc(100dvh - 20px));background:#fff;border:1px solid #e9e3f5;border-radius:18px;box-shadow:0 12px 40px #24174455;overflow:hidden;z-index:11}
@@ -131,7 +131,7 @@ function mountAd(box){
  const brandAnchor=brandNode&&brandNode.querySelector('a.brand-link');
  const head=brandNode&&brandNode.parentElement;
  const verify=()=>{
-  if(renderingRecent||!integrityArmed)return;
+  if(renderingRecent||!integrityArmed||!wrap.isConnected)return;
   const currentBrand=$('aqxBrand');
   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
   const currentAd=$('ad-block');

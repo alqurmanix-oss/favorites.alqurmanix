@@ -106,7 +106,7 @@ function save(){
  status.textContent='تم فتح نافذة AQX لإتمام الحفظ…';
 }
 function safeText(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-let integrityObservers=[],violationSent=false,renderingRecent=false,integrityCheck=()=>{};
+let integrityObservers=[],violationSent=false,renderingRecent=false,integrityArmed=false,integrityCheck=()=>{};
 function signalViolation(){
  if(violationSent)return;violationSent=true;
  parent.postMessage({type:'aqx-favorites-violation'},'*');
@@ -131,7 +131,7 @@ function mountAd(box){
  const brandAnchor=brandNode&&brandNode.querySelector('a.brand-link');
  const head=brandNode&&brandNode.parentElement;
  const verify=()=>{
-  if(renderingRecent)return;
+  if(renderingRecent||!integrityArmed)return;
   const currentBrand=$('aqxBrand');
   const currentAnchor=currentBrand&&currentBrand.querySelector('a.brand-link');
   const currentAd=$('ad-block');
@@ -162,7 +162,8 @@ function mountAd(box){
  observe(wrap,{childList:true});
  observe(wrap,{attributes:true,attributeFilter:['style']});
  observe(script,{attributes:true,attributeFilter:['src','data-placement-key','data-target','async']});
- verify();
+ integrityArmed=false;
+ setTimeout(()=>{integrityArmed=true;verify()},1800);
 }
 async function loadRecent(){
  if(integrityObservers.length){integrityObservers.forEach(observer=>observer.disconnect());integrityObservers=[];}

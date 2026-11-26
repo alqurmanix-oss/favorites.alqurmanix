@@ -3,73 +3,140 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#1456f0">
-<meta name="description" content="أكواد تضمين AQX Favorites للمطورين وأصحاب المواقع.">
-<title>المطورين | AQX Favorites</title>
+<meta name="theme-color" content="#101d49">
+<meta name="description" content="أدوات وأكواد دمج AQX Favorites للمطورين وأصحاب المواقع.">
+<title>مركز المطورين | AQX Favorites</title>
 <style>
-:root{font-family:Tahoma,Arial,sans-serif;color:#17264d;background:#f3f7ff}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:linear-gradient(180deg,#eef4ff,#fff 45%,#f3f7ff)}
-.wrap{width:min(900px,calc(100% - 28px));margin:0 auto;padding:34px 0 48px}
-header{text-align:center;margin-bottom:28px}
-h1{font-size:clamp(27px,5vw,40px);margin:0 0 8px;color:#0b1f5c}
-header p{margin:0;color:#65718e;line-height:1.8}
-.panel{background:#fff;border:1px solid #e3eaf8;border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 10px 30px rgba(20,86,240,.07)}
-.panel h2{font-size:21px;color:#0b1f5c;margin:0 0 8px}
-.panel p{color:#65718e;line-height:1.8;margin:0}
-.code-wrap{direction:ltr;text-align:left;background:#081a4b;color:#d9e8ff;border-radius:12px;overflow:auto;padding:17px;margin-top:14px}
-pre{margin:0;white-space:pre;font:13px/1.75 Consolas,monospace}
-.actions{text-align:center;margin-top:28px}
-.back{display:inline-flex;align-items:center;justify-content:center;padding:13px 25px;border-radius:12px;background:#1456f0;color:#fff;text-decoration:none;font-weight:800}
-.back:hover{filter:brightness(.95)}
-@media(max-width:600px){.wrap{padding-top:24px}.panel{padding:16px}.code-wrap{padding:12px}pre{font-size:11px}}
+:root{font-family:Tahoma,Arial,sans-serif;color:#17264d;background:#f3f6ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -10%,#dce8ff 0,transparent 48%),linear-gradient(180deg,#f5f7ff,#fff 55%,#f3f6ff)}
+.wrap{width:min(980px,calc(100% - 28px));margin:auto;padding:38px 0 52px}
+.hero{text-align:center;margin-bottom:28px}.eyebrow{display:inline-block;padding:7px 13px;border:1px solid #dce5ff;background:#fff;border-radius:30px;color:#315bd4;font-size:12px;font-weight:bold;margin-bottom:12px}
+h1{font-size:clamp(28px,5vw,42px);color:#101d49;margin:0 0 10px}.hero p{color:#687493;line-height:1.9;margin:0}
+.panel{background:#fff;border:1px solid #e2e8f5;border-radius:20px;padding:23px;margin:17px 0;box-shadow:0 14px 38px #233e8110}
+.panel-head{display:flex;align-items:center;gap:13px;margin-bottom:8px}.number{width:40px;height:40px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(135deg,#315fe7,#7549db);color:white;font-weight:900}
+h2{font-size:20px;color:#142653;margin:0}.desc{color:#697590;line-height:1.85;margin:0}
+.codebox{margin-top:16px;border:1px solid #263d76;border-radius:15px;overflow:hidden;background:#08152f;box-shadow:0 12px 26px #07142b20}
+.codebar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;background:linear-gradient(90deg,#142b59,#1c2450);border-bottom:1px solid #34466f;color:#c8d7ff;font-size:12px}
+.dots{display:flex;gap:5px}.dots i{width:8px;height:8px;border-radius:50%;background:#ff6b75}.dots i:nth-child(2){background:#ffc45c}.dots i:nth-child(3){background:#56d69a}
+.tools{display:flex;gap:7px;flex-wrap:wrap}.tool{border:1px solid #53658d;background:#23375f;color:#f3f6ff;border-radius:8px;padding:7px 10px;font:inherit;font-size:11px;cursor:pointer}.tool:hover{background:#35518a}
+pre{direction:ltr;text-align:left;overflow:auto;margin:0;padding:19px;color:#dce8ff;font:13px/1.85 Consolas,Monaco,monospace;white-space:pre;tab-size:2}
+.kw{color:#c792ea}.tag{color:#ffcb8b}.str{color:#c3e88d}.fn{color:#82aaff}.cm{color:#7890b5}.prop{color:#89ddff}
+.url-panel{margin:17px 0 22px;padding:19px 21px;border-radius:17px;background:linear-gradient(120deg,#10275b,#1d3d83);color:#fff;box-shadow:0 12px 30px #10275b24}
+.url-panel h2{color:#fff;margin:0 0 7px}.url-panel p{color:#d5e0ff;line-height:1.8;margin:0}.url-row{display:flex;gap:9px;align-items:center;margin-top:13px;direction:ltr}.url-value{flex:1;min-width:0;overflow-wrap:anywhere;background:#07183c;border:1px solid #49639a;border-radius:9px;padding:11px;color:#dce8ff;font:12px Consolas,monospace;text-align:left}.url-copy{white-space:nowrap;border:0;border-radius:9px;padding:11px 15px;background:#fff;color:#17346f;font-weight:bold;cursor:pointer}
+.info{margin-top:12px;background:#f1f5ff;border:1px solid #dce6ff;border-radius:12px;padding:13px 15px;color:#536487;line-height:1.85;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:30px}.feature{display:block;text-decoration:none;background:#fff;border:1px solid #e1e8f7;border-radius:18px;padding:21px;box-shadow:0 10px 28px #1a34700b;transition:.2s}.feature:hover{transform:translateY(-3px);box-shadow:0 15px 32px #1a347018}.feature-icon{width:43px;height:43px;display:grid;place-items:center;border-radius:14px;background:#edf2ff;color:#315bd4;font-size:22px;margin-bottom:13px}.feature h3{margin:0 0 8px;color:#142653;font-size:18px}.feature p{margin:0;color:#6b7691;line-height:1.85;font-size:13px}.feature span{display:inline-block;margin-top:14px;color:#315bd4;font-size:12px;font-weight:bold}
+.footer{text-align:center;margin-top:28px}.back{display:inline-flex;align-items:center;justify-content:center;padding:13px 25px;border-radius:12px;background:linear-gradient(135deg,#315fe7,#654bd5);color:#fff;text-decoration:none;font-weight:800;box-shadow:0 8px 18px #315fe733}
+@media(max-width:650px){.wrap{padding-top:25px}.panel{padding:16px}.cards{grid-template-columns:1fr}.url-row{align-items:stretch;flex-direction:column}.url-copy{width:100%}pre{font-size:11px;padding:14px}.codebar{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
 <main class="wrap">
-<header>
-<h1>أكواد تضمين AQX Favorites</h1>
-<p>انسخ الكود المناسب وأضفه إلى موقعك لتفعيل الحفظ أو إظهار أيقونة AQX Favorites العائمة.</p>
-</header>
+<header class="hero"><div class="eyebrow">AQX FAVORITES · DEVELOPER HUB</div><h1>مركز المطورين</h1><p>ادمج AQX Favorites في موقعك بسهولة، وأتح لزوارك حفظ الصفحات والرجوع إليها من مكتبتهم الشخصية.</p></header>
+
 <section class="panel">
-<h2>1. كود زر الحفظ</h2>
-<p>ضع هذا الكود في الموضع الذي تريد ظهور زر الحفظ فيه داخل صفحتك.</p>
-<div class="code-wrap"><pre><code>&lt;div id="aqx-save-button"&gt;&lt;/div&gt;
-&lt;script&gt;
-(function () {
-  const frame = document.createElement("iframe");
-  const url = new URL(
-    "https://favorites.alqurmanix.com/guest/embed.html"
+<div class="panel-head"><span class="number">01</span><h2>كود زر الحفظ</h2></div>
+<p class="desc">ضع الكود في المكان الذي تريد ظهور زر «حفظ» فيه. سيُمرّر عنوان الصفحة ورابطها تلقائيًا إلى AQX Favorites.</p>
+<div class="codebox">
+<div class="codebar"><span class="dots"><i></i><i></i><i></i></span><div class="tools"><button class="tool" data-copy="save-code">نسخ الكود</button><button class="tool" data-download="save-code" data-file="aqx-save-button.html">تنزيل</button><button class="tool" data-share="save-code">مشاركة</button></div></div>
+<pre><code id="save-code"><span class="tag">&lt;div</span> <span class="prop">id</span>=<span class="str">"aqx-save-button"</span><span class="tag">&gt;&lt;/div&gt;</span>
+<span class="tag">&lt;script&gt;</span>
+(<span class="kw">function</span> () {
+  <span class="kw">const</span> frame = document.<span class="fn">createElement</span>(<span class="str">"iframe"</span>);
+  <span class="kw">const</span> url = <span class="kw">new</span> URL(
+    <span class="str">"https://favorites.alqurmanix.com/guest/embed.html"</span>
   );
 
-  url.searchParams.set("mode", "save");
-  url.searchParams.set("url", location.href);
-  url.searchParams.set("title", document.title);
+  url.searchParams.<span class="fn">set</span>(<span class="str">"mode"</span>, <span class="str">"save"</span>);
+  url.searchParams.<span class="fn">set</span>(<span class="str">"url"</span>, location.href);
+  url.searchParams.<span class="fn">set</span>(<span class="str">"title"</span>, document.title);
 
   frame.src = url.href;
-  frame.title = "AQX Favorites - Save";
-  frame.width = "180";
-  frame.height = "70";
+  frame.title = <span class="str">"AQX Favorites - Save"</span>;
+  frame.width = <span class="str">"180"</span>;
+  frame.height = <span class="str">"70"</span>;
   frame.style.cssText =
-    "border:0;overflow:hidden;max-width:100%;";
-  frame.setAttribute("allow", "storage-access");
+    <span class="str">"border:0;overflow:hidden;max-width:100%;"</span>;
+  frame.<span class="fn">setAttribute</span>(<span class="str">"allow"</span>, <span class="str">"storage-access"</span>);
 
-  document.getElementById("aqx-save-button")
-    .appendChild(frame);
+  document.<span class="fn">getElementById</span>(<span class="str">"aqx-save-button"</span>)
+    .<span class="fn">appendChild</span>(frame);
 })();
-&lt;/script&gt;</code></pre></div>
+<span class="tag">&lt;/script&gt;</span></code></pre>
+</div>
 </section>
+
+<section class="url-panel">
+<h2>رابط مفضلة الضيف</h2>
+<p>يمكنك استخدام الرابط المباشر لمفضلة الضيف في موقعك أو مشاركته مع الزوار.</p>
+<div class="url-row"><code class="url-value" id="guest-url">https://favorites.alqurmanix.com/guest/index.html</code><button class="url-copy" data-copy="guest-url">نسخ الرابط</button></div>
+<div class="info">إذا أردت إضافة بند باسم «محفوظاتي» أو «مكتبتي» داخل موقعك، اجعل هذا الرابط وجهة البند؛ وعند الضغط عليه ينتقل الزائر مباشرةً إلى مفضلة AQX Favorites الخاصة بالضيف.</div>
+</section>
+
 <section class="panel">
-<h2>2. كود الأيقونة العائمة</h2>
-<p>أضف هذا السكربت مرة واحدة داخل الصفحة لتفعيل أيقونة AQX Favorites العائمة.</p>
-<div class="code-wrap"><pre><code>&lt;!-- AQX Favorites - Floating Icon --&gt;
-&lt;script
-  async
-  src="https://favorites.alqurmanix.com/guest/floating-widget.js?v=1"
-&gt;&lt;/script&gt;
-&lt;!-- End AQX Favorites --&gt;</code></pre></div>
+<div class="panel-head"><span class="number">02</span><h2>كود الأيقونة العائمة</h2></div>
+<p class="desc">أضف السكربت التالي مرة واحدة داخل الصفحة لإظهار أيقونة AQX Favorites العائمة، ليتمكن الزائر من الوصول إلى تجربة الحفظ بسهولة.</p>
+<div class="codebox">
+<div class="codebar"><span class="dots"><i></i><i></i><i></i></span><div class="tools"><button class="tool" data-copy="floating-code">نسخ الكود</button><button class="tool" data-download="floating-code" data-file="aqx-floating-icon.html">تنزيل</button><button class="tool" data-share="floating-code">مشاركة</button></div></div>
+<pre><code id="floating-code"><span class="cm">&lt;!-- AQX Favorites - Floating Icon --&gt;</span>
+<span class="tag">&lt;script</span>
+  <span class="prop">async</span>
+  <span class="prop">src</span>=<span class="str">"https://favorites.alqurmanix.com/guest/floating-widget.js?v=1"</span>
+<span class="tag">&gt;&lt;/script&gt;</span>
+<span class="cm">&lt;!-- End AQX Favorites --&gt;</span></code></pre>
+</div>
 </section>
-<div class="actions"><a class="back" href="/guest/index.html">↩ عودة للمفضلة</a></div>
+
+<section class="cards" aria-label="المزيد للمطورين">
+<a class="feature" href="/pages/clean-embed.html"><div class="feature-icon">✦</div><h3>تضمين بدون إعلانات وعلامة AQX</h3><p>مسار مخصص لخيارات التضمين النظيفة، بواجهة مستقلة وإعدادات تناسب المواقع التي تحتاج تجربة تضمين مختلفة.</p><span>استكشف خيارات التضمين ←</span></a>
+<a class="feature" href="https://id.alqurmanix.com"><div class="feature-icon">⌘</div><h3>تكاملات المطورين</h3><p>ابدأ ربط موقعك وخدماتك بمنظومة AQX، واستفد من إمكانات التكامل المخصصة للمطورين. يتطلب بدء التكامل إنشاء حساب AQX وتسجيل الدخول.</p><span>فتح حساب AQX والبدء ←</span></a>
+</section>
+<div class="footer"><a class="back" href="/guest/index.html">↩ عودة للمفضلة</a></div>
 </main>
+<script>
+(function(){
+  function source(id){
+    const el=document.getElementById(id);
+    return el ? el.innerText : "";
+  }
+  async function copyText(value){
+    try{
+      await navigator.clipboard.writeText(value);
+      return true;
+    }catch(e){
+      const area=document.createElement("textarea");
+      area.value=value;document.body.appendChild(area);area.select();
+      const ok=document.execCommand("copy");area.remove();return ok;
+    }
+  }
+  document.querySelectorAll("[data-copy]").forEach(button=>{
+    button.addEventListener("click",async()=>{
+      const id=button.dataset.copy;
+      const value=id==="guest-url"?document.getElementById(id).innerText:source(id);
+      const old=button.textContent;
+      button.textContent=await copyText(value)?"تم النسخ ✓":"تعذر النسخ";
+      setTimeout(()=>button.textContent=old,1600);
+    });
+  });
+  document.querySelectorAll("[data-download]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const blob=new Blob([source(button.dataset.download)],{type:"text/plain;charset=utf-8"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");
+      a.href=url;a.download=button.dataset.file;a.click();URL.revokeObjectURL(url);
+    });
+  });
+  document.querySelectorAll("[data-share]").forEach(button=>{
+    button.addEventListener("click",async()=>{
+      const value=source(button.dataset.share);
+      if(navigator.share){
+        try{await navigator.share({title:"كود AQX Favorites",text:value});}catch(e){}
+      }else{
+        const ok=await copyText(value);
+        const old=button.textContent;button.textContent=ok?"نُسخ للمشاركة ✓":"تعذر النسخ";
+        setTimeout(()=>button.textContent=old,1600);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>

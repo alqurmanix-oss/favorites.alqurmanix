@@ -134,7 +134,7 @@ function mountAd(box){
   // The ad provider owns the contents of #ad-block and may add, replace,
   // or remove its own runtime nodes. Protect the slot itself and the
   // configured loader, without observing mutations inside the provider area.
-  const adValid=currentAd===wrap&&wrap.parentElement===box&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250';
+  const adValid=currentAd===wrap&&wrap.parentElement===box&&document.querySelectorAll('#ad-block').length===1&&wrap.style.width==='320px'&&wrap.style.height==='250px'&&wrap.style.maxWidth==='100%'&&wrap.style.margin==='10px auto'&&wrap.style.overflow==='hidden'&&script.parentElement===wrap&&script.getAttribute('src')==='https://vuszqzgldbsscuxdfhdz.supabase.co/functions/v1/aqx-house-ad-serving/client.js'&&script.getAttribute('data-placement-key')==='aqx_general_ad_slot_320x250';
   if(!brandValid||!adValid)signalViolation();
  };
  integrityCheck=verify;
@@ -151,6 +151,7 @@ function mountAd(box){
  observe(brandNode,{childList:true,subtree:true,characterData:true});
  observe(brandAnchor,{attributes:true,attributeFilter:['href']});
  observe(wrap,{attributes:true,attributeFilter:['style']});
+ observe(wrap,{childList:true});
  observe(script,{attributes:true,attributeFilter:['src','data-placement-key']});
  verify();
 }
